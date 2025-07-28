@@ -1,0 +1,21 @@
+// 檔案: model_service.proto
+syntax = "proto3";
+
+// 我們可以將服務名稱改得更貼切，例如 TranslatorService
+service TranslatorService {
+  // 定義一個名為 Translate 的 RPC (遠端程序呼叫)
+  // 它接收 TranslateRequest，並回傳 TranslateResponse
+  rpc Translate (TranslateRequest) returns (TranslateResponse) {}
+}
+
+// 定義請求的資料結構
+message TranslateRequest {
+  string text_to_translate = 1;
+  string source_language = 2;
+  string target_language = 3;
+}
+
+// 定義回應的資料結構
+message TranslateResponse {
+  string translated_text = 1;
+}
