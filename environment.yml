@@ -5,12 +5,12 @@ channels:
   - https://repo.anaconda.com/pkgs/r
   - https://repo.anaconda.com/pkgs/msys2
 dependencies:
+  - pip=25.1=pyhc872135_2
+  - python=3.10.6=hbb2ffb3_1
   - bzip2=1.0.8=h2bbff1b_6
   - ca-certificates=2025.2.25=haa95532_0
   - libffi=3.4.4=hd77b12b_1
   - openssl=1.1.1w=h2bbff1b_0
-  - pip=25.1=pyhc872135_2
-  - python=3.10.6=hbb2ffb3_1
   - setuptools=78.1.1=py310haa95532_0
   - sqlite=3.50.2=hda9a48d_1
   - tk=8.6.14=h5e9d12e_1
@@ -166,9 +166,9 @@ dependencies:
       - thinc==8.3.4
       - threadpoolctl==3.6.0
       - tokenizers==0.21.2
-      - torch==2.7.1+cu128
-      - torchaudio==2.7.1
-      - torchvision==0.22.1+cu128
+      # - torch==2.7.1+cu128
+      # - torchaudio==2.7.1
+      # - torchvision==0.22.1+cu128
       - tqdm==4.67.1
       - transformers==4.53.3
       - typeguard==4.4.4
