@@ -37,12 +37,14 @@ class Wav2LipResponse(_message.Message):
     def __init__(self, video_data: _Optional[bytes] = ...) -> None: ...
 
 class TtsRequest(_message.Message):
-    __slots__ = ("text_to_speak", "reference_audio")
+    __slots__ = ("text_to_speak", "reference_audio", "language")
     TEXT_TO_SPEAK_FIELD_NUMBER: _ClassVar[int]
     REFERENCE_AUDIO_FIELD_NUMBER: _ClassVar[int]
+    LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     text_to_speak: str
     reference_audio: bytes
-    def __init__(self, text_to_speak: _Optional[str] = ..., reference_audio: _Optional[bytes] = ...) -> None: ...
+    language: str
+    def __init__(self, text_to_speak: _Optional[str] = ..., reference_audio: _Optional[bytes] = ..., language: _Optional[str] = ...) -> None: ...
 
 class TtsResponse(_message.Message):
     __slots__ = ("generated_audio",)
