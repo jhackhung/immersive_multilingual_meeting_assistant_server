@@ -1,11 +1,24 @@
 // 檔案: model_service.proto
 syntax = "proto3";
 
+package model.v1;
+
 // 我們可以將服務名稱改得更貼切，例如 TranslatorService
 service TranslatorService {
   // 定義一個名為 Translate 的 RPC (遠端程序呼叫)
   // 它接收 TranslateRequest，並回傳 TranslateResponse
   rpc Translate (TranslateRequest) returns (TranslateResponse) {}
+}
+
+service MediaService {
+  // 1. Wav2Lip: 根據音訊和圖片產生對嘴影片
+  rpc Wav2Lip(Wav2LipRequest) returns (Wav2LipResponse) {}
+
+  // 2. TTS (Text-to-Speech): 將文字轉換為語音
+  rpc Tts(TtsRequest) returns (TtsResponse) {}
+
+  // 3. SpeakerAnnote (Speaker Annotation/Diarization): 說話者日誌
+  rpc SpeakerAnnote(SpeakerAnnoteRequest) returns (SpeakerAnnoteResponse) {}
 }
 
 // 定義請求的資料結構
@@ -18,4 +31,64 @@ message TranslateRequest {
 // 定義回應的資料結構
 message TranslateResponse {
   string translated_text = 1;
+}
+
+// Wav2Lip 請求
+message Wav2LipRequest {
+  // 音訊檔案的原始 bytes 資料
+  bytes audio_data = 1;
+  // 圖片檔案的原始 bytes 資料
+  bytes image_data = 2;
+}
+
+// Wav2Lip 回應
+message Wav2LipResponse {
+  // 生成的影片檔案的原始 bytes 資料
+  bytes video_data = 1;
+}
+
+// TTS 請求
+message TtsRequest {
+  // 需要轉換為語音的文字內容
+  string text_to_speak = 1;
+  // (可選) 用於聲音複製的參考音訊 bytes
+  bytes reference_audio = 2;
+  string language = 3;
+}
+
+// TTS 回應
+message TtsResponse {
+  // 生成的音訊檔案的原始 bytes 資料
+  bytes generated_audio = 1;
+}
+
+// SpeakerAnnote 請求
+message SpeakerAnnoteRequest {
+  // 音訊檔案的原始 bytes 資料
+  bytes audio_data = 1;
+}
+
+message DiarizationSegment {
+  // 說話者的標籤 (例如 "SPEAKER_00", "SPEAKER_01")
+  string speaker = 1;
+  // 此片段在音訊中的開始時間 (單位：秒)
+  double start_time = 2; // 使用 double 提高精度，對應 turn.start
+  // 此片段在音訊中的結束時間 (單位：秒)
+  double end_time = 3;   // 對應 turn.end
+}
+
+message SpeakerTimeline {
+  // 說話者的標籤
+  string speaker = 1;
+  // 'repeated' 表示這是一個列表，包含該說話者的所有片段
+  repeated DiarizationSegment segments = 2;
+}
+
+// SpeakerAnnote 的回應，同時包含兩種實用的格式
+message SpeakerAnnoteResponse {
+  // 格式一：扁平化的片段列表，直接對應 process_audio 的回傳
+  repeated DiarizationSegment all_segments = 1;
+
+  // 格式二：按說話者分組的時間軸，對應 get_speaker_timeline 的回傳
+  repeated SpeakerTimeline speaker_timelines = 2;
 }
