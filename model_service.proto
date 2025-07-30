@@ -53,6 +53,7 @@ message TtsRequest {
   string text_to_speak = 1;
   // (可選) 用於聲音複製的參考音訊 bytes
   bytes reference_audio = 2;
+  string language = 3;
 }
 
 // TTS 回應
