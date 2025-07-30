@@ -1,7 +1,5 @@
 """
-這個檔案包含兩個語者辨識的實作：
-1. OfflineDiarization: 處理完整的音訊檔案 (批次處理)。
-2. StreamingDiarization: 處理即時傳入的音訊流 (串流處理)。
+StreamingDiarization: 處理即時傳入的音訊流 (串流處理)。
 
 必要安裝的函式庫:
 pip install numpy
@@ -18,37 +16,7 @@ from scipy.spatial.distance import cdist
 import librosa
 import time
 
-# --- 類別 1: 離線檔案處理 (與之前版本相同) ---
-class OfflineDiarization:
-    # ... (此處省略與前一版完全相同的程式碼，您可以保留它) ...
-    def __init__(self, segmentation_model_path, embedding_model_path, device='cpu'):
-        """
-        初始化離線語者辨識管線。
-        """
-        self.segmentation_model_path = segmentation_model_path
-        self.embedding_model_path = embedding_model_path
-        
-        providers = ['CPUExecutionProvider']
-        if device.lower() == 'cuda':
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-
-        self.seg_session = ort.InferenceSession(self.segmentation_model_path, providers=providers)
-        self.emb_session = ort.InferenceSession(self.embedding_model_path, providers=providers)
-        
-        self.seg_input_name = self.seg_session.get_inputs()[0].name
-        self.emb_input_name = self.emb_session.get_inputs()[0].name
-        
-        self.sample_rate = 16000
-        self.window_seconds = 5.0
-        self.step_seconds = 0.5
-        self.embedding_chunk_seconds = 1.5
-        self.min_speech_duration_ms = 100
-        self.clustering_threshold = 0.5
-    
-    # ... (其他離線處理的方法) ...
-
-
-# --- 類別 2: 即時音訊串流處理 ---
+--- 即時音訊串流處理 ---
 
 class StreamingDiarization:
     def __init__(self, segmentation_model_path, embedding_model_path, device='cpu'):
