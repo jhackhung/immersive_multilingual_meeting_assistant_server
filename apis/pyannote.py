@@ -1,130 +1,206 @@
-# apis/pyannote.py
+"""
+這個檔案包含兩個語者辨識的實作：
+1. OfflineDiarization: 處理完整的音訊檔案 (批次處理)。
+2. StreamingDiarization: 處理即時傳入的音訊流 (串流處理)。
 
-# --- 1. 匯入必要的函式庫 ---
-import onnxruntime as rt
+必要安裝的函式庫:
+pip install numpy
+pip install onnxruntime
+pip install scikit-learn
+pip install librosa
+"""
+
+import os
 import numpy as np
-import torchaudio
-import torchaudio.transforms as T
-import io
+import onnxruntime as ort
 from sklearn.cluster import AgglomerativeClustering
-from scipy.signal import find_peaks
-import logging
-from pathlib import Path
+from scipy.spatial.distance import cdist
+import librosa
+import time
 
-# --- 2. 設定日誌 ---
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# --- 3. 建立服務類別 ---
-class PyannoteService:
-    def __init__(self, models_path: Path = Path("models")):
+# --- 類別 1: 離線檔案處理 (與之前版本相同) ---
+class OfflineDiarization:
+    # ... (此處省略與前一版完全相同的程式碼，您可以保留它) ...
+    def __init__(self, segmentation_model_path, embedding_model_path, device='cpu'):
         """
-        在服務實例化時，載入所有必要的 ONNX 模型。
-        :param models_path: 存放 ONNX 模型的資料夾路徑。
+        初始化離線語者辨識管線。
         """
-        self.SEG_MODEL_PATH = models_path / "segmentation.onnx"
-        self.EMB_MODEL_PATH = models_path / "embedding.onnx"
+        self.segmentation_model_path = segmentation_model_path
+        self.embedding_model_path = embedding_model_path
         
-        self.seg_session = None
-        self.emb_session = None
+        providers = ['CPUExecutionProvider']
+        if device.lower() == 'cuda':
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
-        try:
-            logger.info(f"正在從 {self.SEG_MODEL_PATH} 載入分割模型...")
-            self.seg_session = rt.InferenceSession(str(self.SEG_MODEL_PATH))
-            
-            logger.info(f"正在從 {self.EMB_MODEL_PATH} 載入嵌入模型...")
-            self.emb_session = rt.InferenceSession(str(self.EMB_MODEL_PATH))
-            
-            logger.info("✅ Pyannote ONNX 模型載入完成！")
-        except Exception as e:
-            logger.error(f"❌ 模型載入失敗: {e}", exc_info=True)
-            
-    def diarize(self, audio_bytes: bytes):
+        self.seg_session = ort.InferenceSession(self.segmentation_model_path, providers=providers)
+        self.emb_session = ort.InferenceSession(self.embedding_model_path, providers=providers)
+        
+        self.seg_input_name = self.seg_session.get_inputs()[0].name
+        self.emb_input_name = self.emb_session.get_inputs()[0].name
+        
+        self.sample_rate = 16000
+        self.window_seconds = 5.0
+        self.step_seconds = 0.5
+        self.embedding_chunk_seconds = 1.5
+        self.min_speech_duration_ms = 100
+        self.clustering_threshold = 0.5
+    
+    # ... (其他離線處理的方法) ...
+
+
+# --- 類別 2: 即時音訊串流處理 ---
+
+class StreamingDiarization:
+    def __init__(self, segmentation_model_path, embedding_model_path, device='cpu'):
         """
-        執行說話者日誌分析的核心邏輯。
-        接收音訊的 bytes，回傳分析結果的字典。
+        初始化即時串流語者辨識器。
+
+        Args:
+            segmentation_model_path (str): 分割模型 (.onnx) 的路徑。
+            embedding_model_path (str): 聲紋嵌入模型 (.onnx) 的路徑。
+            device (str): 運行的裝置， 'cpu' 或 'cuda'。
         """
-        if not self.seg_session or not self.emb_session:
-            logger.error("模型未成功載入，無法執行分析。")
+        print("正在初始化 StreamingDiarization...")
+        providers = ['CPUExecutionProvider']
+        if device.lower() == 'cuda':
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+
+        self.seg_session = ort.InferenceSession(segmentation_model_path, providers=providers)
+        self.emb_session = ort.InferenceSession(embedding_model_path, providers=providers)
+        
+        self.seg_input_name = self.seg_session.get_inputs()[0].name
+        self.emb_input_name = self.emb_session.get_inputs()[0].name
+
+        # --- 串流處理的參數 ---
+        self.sample_rate = 16000
+        self.chunk_seconds = 0.5  # 每次處理的音訊塊長度(秒)
+        self.chunk_samples = int(self.chunk_seconds * self.sample_rate)
+        self.buffer_seconds = 5.0   # 維護一個 5 秒的滑動緩衝區
+        self.buffer_samples = int(self.buffer_seconds * self.sample_rate)
+        
+        # --- 狀態管理 ---
+        self.audio_buffer = np.array([], dtype=np.float32)
+        self.speech_in_progress = False
+        self.speech_start_sample = 0
+        self.total_samples_processed = 0
+
+        # --- 聚類參數 ---
+        self.speaker_clusters = []  # 儲存每個 speaker 的聲紋向量中心
+        self.clustering_threshold = 0.5  # 判斷是否為新講者的餘弦距離閾值
+
+        # --- 嵌入提取參數 ---
+        self.embedding_chunk_samples = int(1.5 * self.sample_rate)
+        
+        print("即時串流辨識器已就緒。")
+
+    def process(self, audio_chunk):
+        """
+        處理一小段傳入的音訊。
+
+        Args:
+            audio_chunk (np.ndarray): 一小段音訊數據 (float32)。
+
+        Returns:
+            list: 一個列表，包含本次處理中新確定的 (speaker_label, start_time, end_time) 元組。
+                  如果沒有新的片段確定，則回傳空列表。
+        """
+        if not isinstance(audio_chunk, np.ndarray):
+            audio_chunk = np.array(audio_chunk, dtype=np.float32)
+
+        # 1. 更新音訊緩衝區
+        self.audio_buffer = np.concatenate([self.audio_buffer, audio_chunk])
+
+        # 2. 執行分割模型，判斷當前是否在說話
+        # 我們只對緩衝區的最新部分進行推論以節省計算
+        if len(self.audio_buffer) >= self.chunk_samples:
+            
+            # 取緩衝區尾部來進行推斷
+            inference_chunk = self.audio_buffer[-self.chunk_samples:]
+            onnx_input = np.expand_dims(inference_chunk, axis=0).astype(np.float32)
+            
+            # 確保輸入長度符合模型要求，不足則補零
+            required_input_length = self.seg_session.get_inputs()[0].shape[1]
+            if len(inference_chunk) < required_input_length:
+                 padding = np.zeros(required_input_length - len(inference_chunk), dtype=np.float32)
+                 onnx_input = np.expand_dims(np.concatenate([inference_chunk, padding]), axis=0)
+
+            ort_outs = self.seg_session.run(None, {self.seg_input_name: onnx_input})
+            speech_prob = np.mean(ort_outs[0][0, :, 1]) # 索引 1 代表 'speech'
+
+            newly_finalized_segments = []
+            
+            # 3. 狀態機：根據機率判斷語音的開始與結束
+            if speech_prob > 0.5 and not self.speech_in_progress:
+                # 語音開始
+                self.speech_in_progress = True
+                self.speech_start_sample = self.total_samples_processed
+
+            elif speech_prob < 0.4 and self.speech_in_progress:
+                # 語音結束
+                self.speech_in_progress = False
+                segment_end_sample = self.total_samples_processed + len(audio_chunk)
+                
+                # 從緩衝區提取剛結束的這段完整語音
+                start_in_buffer = max(0, self.speech_start_sample - (self.total_samples_processed - len(self.audio_buffer)))
+                end_in_buffer = len(self.audio_buffer)
+                speech_segment_audio = self.audio_buffer[start_in_buffer:end_in_buffer]
+                
+                # 4. 提取聲紋並進行線上聚類
+                finalized_segment = self._finalize_segment(speech_segment_audio, self.speech_start_sample, segment_end_sample)
+                if finalized_segment:
+                    newly_finalized_segments.append(finalized_segment)
+
+            # 5. 更新已處理的樣本總數
+            self.total_samples_processed += len(audio_chunk)
+
+            # 6. 維護緩衝區大小，移除過舊的數據
+            if len(self.audio_buffer) > self.buffer_samples:
+                self.audio_buffer = self.audio_buffer[-self.buffer_samples:]
+
+            return newly_finalized_segments
+        
+        return []
+
+    def _finalize_segment(self, segment_audio, start_sample, end_sample):
+        """當一段語音結束時，提取嵌入並指派給一個講者"""
+        duration_ms = (end_sample - start_sample) / self.sample_rate * 1000
+        if duration_ms < 200: # 忽略過短的片段
             return None
 
-        # --- a. 音訊預處理 ---
-        try:
-            audio_buffer = io.BytesIO(audio_bytes)
-            waveform, sample_rate = torchaudio.load(audio_buffer)
+        # a. 提取聲紋嵌入
+        # 確保音訊長度足夠，不足則補齊
+        if len(segment_audio) < self.embedding_chunk_samples:
+            segment_audio = np.tile(segment_audio, int(np.ceil(self.embedding_chunk_samples / len(segment_audio))))[:self.embedding_chunk_samples]
+        else: # 過長則取中間
+            mid = len(segment_audio) // 2
+            segment_audio = segment_audio[mid - self.embedding_chunk_samples//2 : mid + self.embedding_chunk_samples//2]
 
-            if sample_rate != 16000:
-                resampler = T.Resample(orig_freq=sample_rate, new_freq=16000)
-                waveform = resampler(waveform)
+        onnx_input = np.expand_dims(segment_audio, axis=0).astype(np.float32)
+        ort_outs = self.emb_session.run(None, {self.emb_input_name: onnx_input})
+        embedding = ort_outs[0][0]
+
+        # b. 線上聚類 (Online Clustering)
+        if not self.speaker_clusters:
+            # 第一個講者
+            self.speaker_clusters.append([embedding])
+            speaker_id = 0
+        else:
+            # 計算與現有講者群中心的距離
+            cluster_centroids = [np.mean(cluster, axis=0) for cluster in self.speaker_clusters]
+            distances = cdist(np.expand_dims(embedding, axis=0), np.array(cluster_centroids), 'cosine')[0]
             
-            if waveform.shape[0] > 1:
-                waveform = torch.mean(waveform, dim=0, keepdim=True)
-
-            waveform_np = waveform.numpy().astype(np.float32)
-        except Exception as e:
-            logger.error(f"音訊預處理失敗: {e}", exc_info=True)
-            raise ValueError("無法處理音訊檔案")
-
-        # --- b. 執行「分割模型」---
-        CHUNK_DURATION_SAMPLES = 16000 * 5
-        if waveform_np.shape[1] > CHUNK_DURATION_SAMPLES:
-            logger.warning(f"音訊長度 ({waveform_np.shape[1]/16000:.2f}s) 超過模型輸入尺寸，將截斷為前 5 秒。")
-            waveform_np = waveform_np[:, :CHUNK_DURATION_SAMPLES]
-        elif waveform_np.shape[1] < CHUNK_DURATION_SAMPLES:
-            padding = np.zeros((1, CHUNK_DURATION_SAMPLES - waveform_np.shape[1]), dtype=np.float32)
-            waveform_np = np.concatenate([waveform_np, padding], axis=1)
-
-        seg_input = {'input_audio': waveform_np}
-        seg_output, = self.seg_session.run(None, seg_input)
-        
-        # --- c. 從分割結果中找出語音片段 (簡化邏輯) ---
-        speech_prob = seg_output[0, :, 0]
-        peaks, _ = find_peaks(speech_prob, height=0.5, distance=15)
-        
-        if len(peaks) == 0:
-            return {"message": "未偵測到任何語音活動。"}
-
-        speech_segments = []
-        FRAME_SHIFT_S = 0.016
-        current_segment = {'start': round(peaks[0] * FRAME_SHIFT_S, 2), 'end': 0}
-        for i in range(1, len(peaks)):
-            if (peaks[i] - peaks[i-1]) * FRAME_SHIFT_S > 0.5:
-                current_segment['end'] = round(peaks[i-1] * FRAME_SHIFT_S, 2)
-                speech_segments.append(current_segment)
-                current_segment = {'start': round(peaks[i] * FRAME_SHIFT_S, 2), 'end': 0}
-        current_segment['end'] = round(peaks[-1] * FRAME_SHIFT_S, 2)
-        speech_segments.append(current_segment)
-        
-        # --- d. 對每個語音片段執行「嵌入模型」---
-        embeddings = []
-        EMB_CHUNK_SAMPLES = 16000 * 2
-        for segment in speech_segments:
-            start_sample = int(segment['start'] * 16000)
-            end_sample = int(segment['end'] * 16000)
-            chunk = waveform_np[:, start_sample:end_sample]
-
-            if chunk.shape[1] < EMB_CHUNK_SAMPLES:
-                padding = np.zeros((1, EMB_CHUNK_SAMPLES - chunk.shape[1]), dtype=np.float32)
-                chunk = np.concatenate([chunk, padding], axis=1)
+            min_dist_idx = np.argmin(distances)
+            if distances[min_dist_idx] < self.clustering_threshold:
+                # 分配給現有講者
+                speaker_id = min_dist_idx
+                self.speaker_clusters[speaker_id].append(embedding)
             else:
-                chunk = chunk[:, :EMB_CHUNK_SAMPLES]
-                
-            emb_input = {'input_audio': chunk}
-            embedding, = self.emb_session.run(None, emb_input)
-            embeddings.append(embedding.flatten())
+                # 建立新講者
+                self.speaker_clusters.append([embedding])
+                speaker_id = len(self.speaker_clusters) - 1
 
-        # --- e. 對嵌入向量進行「聚類」---
-        if len(embeddings) < 2:
-            if speech_segments:
-                speech_segments[0]['speaker'] = 'SPEAKER_00'
-            return {"diarization": speech_segments}
+        speaker_label = f"SPEAKER_{speaker_id:02d}"
+        start_time = start_sample / self.sample_rate
+        end_time = end_sample / self.sample_rate
 
-        clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=0.8).fit(np.array(embeddings))
-        labels = clustering.labels_
-
-        # --- f. 整理結果並回傳 ---
-        for i, segment in enumerate(speech_segments):
-            segment['speaker'] = f'SPEAKER_{labels[i]:02d}'
-
-        return {"diarization": speech_segments}
-
+        return (speaker_label, start_time, end_time)
