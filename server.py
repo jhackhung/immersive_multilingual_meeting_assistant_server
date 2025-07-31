@@ -10,6 +10,7 @@ import model_service_pb2_grpc
 
 # 從你的模型檔案中，匯入 MBartTranslator 類別
 from models.mbart_translator_model import MBartTranslator
+from apis.wav2lip_service import Wav2LipServicer
 
 # 伺服器邏輯的實現
 class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
@@ -67,6 +68,9 @@ def serve():
     model_service_pb2_grpc.add_TranslatorServiceServicer_to_server(
         TranslatorServicer(translator_instance=translator), server
     )
+
+    # 註冊 Wav2LipServicer
+    model_service_pb2_grpc.add_MediaServiceServicer_to_server(Wav2LipServicer(), server)
 
     server.add_insecure_port('[::]:50051')
     print("\n🚀 gRPC 伺服器已成功啟動，模型已載入，監聽埠 50051...")
