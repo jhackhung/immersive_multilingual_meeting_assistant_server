@@ -5,12 +5,13 @@ import grpc
 import time
 
 # 匯入 gRPC 模組
-import model_service_pb2
-import model_service_pb2_grpc
+from proto import model_service_pb2
+from proto import model_service_pb2_grpc
 
 # 從你的模型檔案中，匯入 MBartTranslator 類別
 from models.mbart_translator_model import MBartTranslator
 from apis.wav2lip_service import Wav2LipServicer
+from apis.tts_service import TtsServicer
 
 # 伺服器邏輯的實現
 class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
@@ -52,13 +53,16 @@ def serve():
     print("正在初始化翻譯模型...")
     translator = MBartTranslator()
     
-    # 執行耗時的模型載入
+    # # 執行耗時的模型載入
     model_loaded = translator.load_model()
     
-    # 如果模型載入失敗，就不要啟動伺服器
+    # # 如果模型載入失敗，就不要啟動伺服器
     if not model_loaded:
         print("模型載入失敗，伺服器無法啟動。")
         return
+    
+    print("正在初始化 TTS 模型...")
+    tts_servicer = TtsServicer()
     # ----------------------------------------------------
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -71,6 +75,8 @@ def serve():
 
     # 註冊 Wav2LipServicer
     model_service_pb2_grpc.add_MediaServiceServicer_to_server(Wav2LipServicer(), server)
+    
+    model_service_pb2_grpc.add_MediaServiceServicer_to_server(tts_servicer, server)
 
     server.add_insecure_port('[::]:50051')
     print("\n🚀 gRPC 伺服器已成功啟動，模型已載入，監聽埠 50051...")
