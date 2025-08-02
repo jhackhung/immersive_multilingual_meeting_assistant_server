@@ -6,8 +6,8 @@ import time
 import logging
 
 # 匯入 gRPC 模組
-import model_service_pb2
-import model_service_pb2_grpc
+from proto import model_service_pb2
+from proto import model_service_pb2_grpc
 
 # 匯入所有 API 服務層
 from apis.wav2lip_service import Wav2LipServicer
@@ -18,12 +18,12 @@ from apis.tts_service import TtsServicer
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ImmersiveMultilingualMeetingAssistantServer(model_service_pb2_grpc.TranslatorServiceServicer):
+class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
     """gRPC 翻譯服務實現"""
     
     def __init__(self, translator_api: TranslatorService):
         self.translator_api = translator_api
-        logger.info("ImmersiveMultilingualMeetingAssistantServer 已初始化")
+        logger.info("TranslatorServicer 已初始化")
 
     def Translate(self, request, context):
         """處理翻譯請求"""
@@ -48,8 +48,6 @@ class ImmersiveMultilingualMeetingAssistantServer(model_service_pb2_grpc.Transla
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(result["error"])
             return model_service_pb2.TranslateResponse()
-
-
 class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     """統一的媒體服務實現，整合 TTS、Wav2Lip 和 SpeakerAnnote"""
     
@@ -85,12 +83,12 @@ class SpeakerAnnoteServicer:
     def initialize(self) -> bool:
         """初始化語者辨識模型"""
         try:
-            from apis.pyannote import StreamingDiarization
+            # 修正匯入 - 根據您的 pyannote.py 檔案，應該是 OfficialRealtimeDiarizer
+            from apis.pyannote import OfficialRealtimeDiarizer
             logger.info("正在載入語者辨識模型...")
             
-            self.diarization_model = StreamingDiarization(
-                device='cpu',  # 可以根據需要改為 'cuda'
-                use_qualcomm_npu=False
+            self.diarization_model = OfficialRealtimeDiarizer(
+                clustering_threshold=0.7
             )
             
             logger.info("語者辨識模型載入成功")
@@ -115,6 +113,7 @@ class SpeakerAnnoteServicer:
             logger.info("處理語者辨識請求...")
             
             # TODO: 實際的語者辨識處理邏輯
+            # 需要將 bytes 轉換為 numpy array，然後處理
             # results = self.diarization_model.process(audio_data)
             
             return model_service_pb2.SpeakerAnnoteResponse(
@@ -174,7 +173,7 @@ class ServerManager:
         """設定 gRPC 伺服器"""
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         
-        # 註冊翻譯服務
+        # 註冊翻譯服務 - 修正這裡：使用 TranslatorServicer 而不是 TranslatorService
         model_service_pb2_grpc.add_TranslatorServiceServicer_to_server(
             TranslatorServicer(self.translator_api), 
             self.server
