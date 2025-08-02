@@ -6,8 +6,8 @@ import time
 import logging
 
 # 匯入 gRPC 模組
-from proto import model_service_pb2
-from proto import model_service_pb2_grpc
+import model_service_pb2
+import model_service_pb2_grpc
 
 # 匯入所有 API 服務層
 from apis.wav2lip_service import Wav2LipServicer
