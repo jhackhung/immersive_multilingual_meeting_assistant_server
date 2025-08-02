@@ -1,8 +1,8 @@
 # 檔案: client.py
 
 import grpc
-import model_service_pb2
-import model_service_pb2_grpc
+from proto import model_service_pb2
+from proto import model_service_pb2_grpc
 
 def run_translation_test(stub, text, src_lang, tgt_lang):
     """一個輔助函式，用來執行單次翻譯並印出結果"""
