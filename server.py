@@ -84,7 +84,7 @@ class SpeakerAnnoteServicer:
         """初始化語者辨識模型"""
         try:
             # 修正匯入 - 根據您的 pyannote.py 檔案，應該是 OfficialRealtimeDiarizer
-            from apis.pyannote import OfficialRealtimeDiarizer
+            from apis.pyanote import OfficialRealtimeDiarizer
             logger.info("正在載入語者辨識模型...")
             
             self.diarization_model = OfficialRealtimeDiarizer(
