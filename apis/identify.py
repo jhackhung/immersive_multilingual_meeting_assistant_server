@@ -48,22 +48,18 @@ class OfficialRealtimeDiarizer:
         self.audio_buffer = np.concatenate([self.audio_buffer, audio_chunk])
         return []
 
-    def flush(self) -> List[Tuple[str, float, float]]:
-        """處理整個音訊緩衝區並回傳最終結果"""
+    def flush(self) -> Annotation: # <--- 修改點 1: 改變回傳型別提示
+        """處理整個音訊緩衝區並回傳最終結果的 Annotation 物件"""
         if len(self.audio_buffer) == 0:
-            return []
+            return Annotation() # 回傳一個空的 Annotation
 
         print("正在處理累積的音訊緩衝區...")
         waveform = torch.from_numpy(self.audio_buffer).unsqueeze(0).to(self.device)
         
         diarization = self.pipeline({"waveform": waveform, "sample_rate": self.sample_rate})
 
-        final_segments = []
-        for segment, _, speaker in diarization.itertracks(yield_label=True):
-            final_segments.append((speaker, segment.start, segment.end))
-        
         self.reset()
-        return final_segments
+        return diarization # <--- 修改點 2: 直接回傳整個 diarization 物件
 
     def reset(self):
         """重置所有狀態"""
