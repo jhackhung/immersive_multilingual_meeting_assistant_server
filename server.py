@@ -1,4 +1,5 @@
 # 檔案: server.py (最終修正版 v2)
+print("!!! SERVER.PY HAS BEEN MODIFIED SUCCESSFULLY !!!")
 
 from concurrent import futures
 import grpc
@@ -136,19 +137,12 @@ class SpeakerAnnoteServicer:
             
             self.diarization_model.process(audio_data)
             
-            # 從模型取得 Annotation 物件
-            diarization_annotation = self.diarization_model.flush()
-            
-            # =================== 修正點：將 Annotation 物件轉換為列表 ===================
-            # 這是解決 'Annotation' object has no attribute 'sort' 錯誤的關鍵
-            raw_segments = []
-            for segment, _, speaker in diarization_annotation.itertracks(yield_label=True):
-                raw_segments.append((speaker, segment.start, segment.end))
+            # *** THIS IS THE FIX: Directly use the list returned by flush() ***
+            raw_segments = self.diarization_model.flush()
             
             logger.info(f"講者分辨完成，原始片段數量: {len(raw_segments)}")
-            # =======================================================================
 
-            # 使用轉換後的列表來進行合併
+            # 使用原始列表來進行合併
             merged_results = self._merge_segments(raw_segments)
             logger.info(f"片段合併完成，合併後片段數量: {len(merged_results)}")
 
@@ -249,7 +243,6 @@ class ServerManager:
             self.server
         )
         
-        # 修正綁定埠口問題
         self.server.add_insecure_port('0.0.0.0:50051')
         logger.info("gRPC 伺服器設定完成")
     
@@ -271,7 +264,6 @@ class ServerManager:
             self.server.stop(0)
             logger.info("伺服器已關閉")
         
-
 def serve():
     server_manager = ServerManager()
     server_manager.start_server()
