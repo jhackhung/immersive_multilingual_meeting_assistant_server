@@ -211,33 +211,26 @@ def main():
             except FileNotFoundError:
                 continue
 
-        # --- 執行 Wav2Lip 測試（可選，需要圖片檔案） ---
+        # --- 執行 Wav2Lip 測試 ---
         print("\n🎬 測試 Wav2Lip 服務:")
         print("-" * 30)
         
-        # 檢查是否有測試用的圖片檔案
-        test_image_files = ["test_face.jpg", "test_face.png", "sample_face.jpg"]
-        image_file_found = False
-        
-        for image_file in test_image_files:
-            try:
-                with open(image_file, 'rb'):
-                    audio_file = "output_en.wav"  # 使用之前生成的音訊
-                    try:
-                        with open(audio_file, 'rb'):
-                            print(f"📁 使用音訊檔案: {audio_file}, 圖片檔案: {image_file}")
-                            run_wav2lip_test(media_stub, audio_file, image_file)
-                            image_file_found = True
-                            break
-                    except FileNotFoundError:
-                        print(f"⚠️ 找不到音訊檔案 {audio_file}，跳過 Wav2Lip 測試")
-                        break
-            except FileNotFoundError:
-                continue
-        
-        if not image_file_found:
-            print("⚠️ 沒有找到測試用的圖片檔案，跳過 Wav2Lip 測試")
-            print("   如需測試 Wav2Lip，請準備 test_face.jpg 或 test_face.png")
+        audio_file_path = "wav2lip_sample/chinese_news.wav"
+        image_file_path = "wav2lip_sample/tom.jpg"
+
+        try:
+            # 檢查檔案是否存在
+            with open(audio_file_path, 'rb'):
+                pass
+            with open(image_file_path, 'rb'):
+                pass
+            
+            print(f"📁 使用音訊檔案: {audio_file_path}, 圖片檔案: {image_file_path}")
+            run_wav2lip_test(media_stub, audio_file_path, image_file_path)
+
+        except FileNotFoundError:
+            print(f"⚠️ 找不到測試檔案，跳過 Wav2Lip 測試。")
+            print(f"   請確認 '{audio_file_path}' 和 '{image_file_path}' 是否存在。")
 
         print("\n" + "="*60)
         print("✅ 所有測試完成！")

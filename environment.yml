@@ -70,7 +70,7 @@ dependencies:
       - frozenlist==1.7.0
       - fsspec==2025.7.0
       - g2pkk==0.1.2
-      - grpcio==1.73.1
+      - grpcio==1.74.0
       - gruut==2.4.0
       - gruut-ipa==0.13.0
       - gruut-lang-de==2.0.1
@@ -116,6 +116,7 @@ dependencies:
       - numpy==1.26.4
       - onnx==1.18.0
       - onnxruntime==1.22.1
+      - opencv-python
       - packaging==25.0
       - pandas==1.5.3
       - pillow==11.3.0
