@@ -19,6 +19,10 @@ service MediaService {
 
   // 3. SpeakerAnnote (Speaker Annotation/Diarization): 說話者日誌
   rpc SpeakerAnnote(SpeakerAnnoteRequest) returns (SpeakerAnnoteResponse) {}
+
+  // LLM 服務
+  rpc GenerateText(TextGenerationRequest) returns (TextGenerationResponse);
+  rpc ChatCompletion(ChatCompletionRequest) returns (ChatCompletionResponse);
 }
 
 // 定義請求的資料結構
@@ -91,4 +95,37 @@ message SpeakerAnnoteResponse {
 
   // 格式二：按說話者分組的時間軸，對應 get_speaker_timeline 的回傳
   repeated SpeakerTimeline speaker_timelines = 2;
+}
+
+// 文本生成請求
+message TextGenerationRequest {
+    string prompt = 1;
+    int32 max_tokens = 2;
+    float temperature = 3;
+    float top_p = 4;
+}
+
+// 文本生成回應
+message TextGenerationResponse {
+    string generated_text = 1;
+    bool success = 2;
+}
+
+// 聊天訊息
+message ChatMessage {
+    string role = 1;  // "system", "user", "assistant"
+    string content = 2;
+}
+
+// 對話完成請求
+message ChatCompletionRequest {
+    repeated ChatMessage messages = 1;
+    int32 max_tokens = 2;
+    float temperature = 3;
+}
+
+// 對話完成回應
+message ChatCompletionResponse {
+    string response = 1;
+    bool success = 2;
 }

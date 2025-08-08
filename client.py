@@ -1,5 +1,3 @@
-# 檔案: client.py
-
 import grpc
 import numpy as np
 import wave
@@ -158,6 +156,163 @@ def run_wav2lip_test(stub, audio_file_path, image_file_path, output_filename="ou
     except Exception as e:
         print(f"❌ [客戶端] 處理 Wav2Lip 時發生錯誤: {e}")
 
+def run_llm_text_generation_test(stub, prompt, max_tokens=100, temperature=0.7):
+    """測試 LLM 文本生成功能"""
+    print(f"\n[客戶端] 發送 LLM 文本生成請求: '{prompt}'")
+    
+    try:
+        # 準備請求物件
+        request = model_service_pb2.TextGenerationRequest(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=0.9
+        )
+        
+        # 呼叫遠端的 GenerateText 服務
+        response = stub.GenerateText(request)
+        
+        # 檢查回應
+        if response.success:
+            print(f"✅ [客戶端] LLM 文本生成成功:")
+            print(f"📄 結果: {response.generated_text}")
+        else:
+            print("❌ [客戶端] LLM 文本生成失敗")
+            
+    except grpc.RpcError as e:
+        print(f"❌ [客戶端] LLM 文本生成請求失敗: {e.code()} - {e.details()}")
+    except Exception as e:
+        print(f"❌ [客戶端] 處理 LLM 文本生成時發生錯誤: {e}")
+
+def run_llm_chat_test(stub, messages, max_tokens=120, temperature=0.7):
+    """測試 LLM 對話功能"""
+    print(f"\n[客戶端] 發送 LLM 對話請求:")
+    
+    # 顯示對話內容
+    for msg in messages:
+        role_icon = "👤" if msg["role"] == "user" else "🤖" if msg["role"] == "assistant" else "⚙️"
+        print(f"  {role_icon} {msg['role']}: {msg['content']}")
+    
+    try:
+        # 構建 gRPC 消息
+        grpc_messages = []
+        for msg in messages:
+            grpc_messages.append(
+                model_service_pb2.ChatMessage(
+                    role=msg["role"],
+                    content=msg["content"]
+                )
+            )
+        
+        # 準備請求物件
+        request = model_service_pb2.ChatCompletionRequest(
+            messages=grpc_messages,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        
+        # 呼叫遠端的 ChatCompletion 服務
+        response = stub.ChatCompletion(request)
+        
+        # 檢查回應
+        if response.success:
+            print(f"✅ [客戶端] LLM 對話成功:")
+            print(f"🤖 助手回應: {response.response}")
+        else:
+            print("❌ [客戶端] LLM 對話失敗")
+            
+    except grpc.RpcError as e:
+        print(f"❌ [客戶端] LLM 對話請求失敗: {e.code()} - {e.details()}")
+    except Exception as e:
+        print(f"❌ [客戶端] 處理 LLM 對話時發生錯誤: {e}")
+
+def run_llm_comprehensive_test(stub):
+    """執行 LLM 的完整測試套件"""
+    print("\n🤖 測試 LLM 服務:")
+    print("-" * 30)
+    
+    # 測試 1: 基本文本生成
+    print("\n📝 測試 1: 基本文本生成")
+    text_prompts = [
+        "The future of artificial intelligence is",
+        "人工智慧的應用包括",
+        "Technology has changed our lives by",
+        "在未來十年，科技發展將會"
+    ]
+    
+    for prompt in text_prompts:
+        run_llm_text_generation_test(stub, prompt, max_tokens=80, temperature=0.7)
+    
+    # 測試 2: 不同溫度參數
+    print("\n🌡️ 測試 2: 不同溫度參數對比")
+    base_prompt = "The benefits of machine learning include"
+    temperatures = [0.3, 0.7, 1.0]
+    
+    for temp in temperatures:
+        print(f"\n🔥 溫度 {temp}:")
+        run_llm_text_generation_test(stub, base_prompt, max_tokens=60, temperature=temp)
+    
+    # 測試 3: 基本對話
+    print("\n💬 測試 3: 基本對話")
+    
+    basic_conversations = [
+        [{"role": "user", "content": "Hello! How are you?"}],
+        [{"role": "user", "content": "你好！請介紹一下你自己。"}],
+        [{"role": "user", "content": "What can you help me with?"}],
+        [{"role": "user", "content": "Tell me about artificial intelligence."}]
+    ]
+    
+    for i, conversation in enumerate(basic_conversations, 1):
+        print(f"\n💭 對話 {i}:")
+        run_llm_chat_test(stub, conversation, max_tokens=100, temperature=0.7)
+    
+    # 測試 4: 系統提示對話
+    print("\n🎭 測試 4: 角色扮演對話（系統提示）")
+    
+    role_conversations = [
+        [
+            {"role": "system", "content": "You are a helpful programming assistant."},
+            {"role": "user", "content": "Explain what is Python programming language."}
+        ],
+        [
+            {"role": "system", "content": "你是一個友善的中文助手。"},
+            {"role": "user", "content": "請解釋什麼是機器學習。"},
+        ],
+        [
+            {"role": "system", "content": "You are a creative writer who loves storytelling."},
+            {"role": "user", "content": "Write the beginning of a short story about robots."}
+        ]
+    ]
+    
+    for i, conversation in enumerate(role_conversations, 1):
+        print(f"\n🎪 角色對話 {i}:")
+        run_llm_chat_test(stub, conversation, max_tokens=120, temperature=0.8)
+    
+    # 測試 5: 多輪對話
+    print("\n🔄 測試 5: 多輪對話")
+    
+    # 模擬一個連續的對話
+    conversation_history = []
+    user_inputs = [
+        "Hi, I want to learn about machine learning.",
+        "What are the main types of machine learning?",
+        "Can you give me an example of supervised learning?",
+        "Thank you for the explanation!"
+    ]
+    
+    for turn, user_input in enumerate(user_inputs, 1):
+        print(f"\n🔄 對話回合 {turn}:")
+        
+        # 添加用戶輸入到歷史
+        conversation_history.append({"role": "user", "content": user_input})
+        
+        # 執行對話
+        run_llm_chat_test(stub, conversation_history, max_tokens=100, temperature=0.6)
+        
+        # 注意：這裡我們沒有真的把助手回應加到歷史中
+        # 因為我們無法從 run_llm_chat_test 取得回應
+        # 在實際應用中，您會想要保存回應並加到歷史中
+
 def main():
     # 連接到 gRPC 伺服器
     print("🔗 正在連接到 gRPC 伺服器...")
@@ -176,8 +331,11 @@ def main():
         media_stub = model_service_pb2_grpc.MediaServiceStub(channel)
 
         print("\n" + "="*60)
-        print("🚀 開始測試所有服務功能")
+        print("🚀 開始測試所有服務功能（包含 LLM）")
         print("="*60)
+
+        # --- 新增：執行 LLM 測試 ---
+        run_llm_comprehensive_test(media_stub)
 
         # --- 執行翻譯測試 ---
         print("\n📝 測試翻譯服務:")
@@ -237,7 +395,7 @@ def main():
             print(f"   請確認 '{audio_file_path}' 和 '{image_file_path}' 是否存在。")
 
         print("\n" + "="*60)
-        print("✅ 所有測試完成！")
+        print("✅ 所有測試完成（包含 LLM）！")
         print("="*60)
 
 if __name__ == '__main__':

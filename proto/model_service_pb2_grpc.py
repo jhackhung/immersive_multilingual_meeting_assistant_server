@@ -126,6 +126,16 @@ class MediaServiceStub(object):
                 request_serializer=model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
                 response_deserializer=model__service__pb2.SpeakerAnnoteResponse.FromString,
                 _registered_method=True)
+        self.GenerateText = channel.unary_unary(
+                '/model.v1.MediaService/GenerateText',
+                request_serializer=model__service__pb2.TextGenerationRequest.SerializeToString,
+                response_deserializer=model__service__pb2.TextGenerationResponse.FromString,
+                _registered_method=True)
+        self.ChatCompletion = channel.unary_unary(
+                '/model.v1.MediaService/ChatCompletion',
+                request_serializer=model__service__pb2.ChatCompletionRequest.SerializeToString,
+                response_deserializer=model__service__pb2.ChatCompletionResponse.FromString,
+                _registered_method=True)
 
 
 class MediaServiceServicer(object):
@@ -152,6 +162,19 @@ class MediaServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GenerateText(self, request, context):
+        """LLM 服務
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ChatCompletion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MediaServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -169,6 +192,16 @@ def add_MediaServiceServicer_to_server(servicer, server):
                     servicer.SpeakerAnnote,
                     request_deserializer=model__service__pb2.SpeakerAnnoteRequest.FromString,
                     response_serializer=model__service__pb2.SpeakerAnnoteResponse.SerializeToString,
+            ),
+            'GenerateText': grpc.unary_unary_rpc_method_handler(
+                    servicer.GenerateText,
+                    request_deserializer=model__service__pb2.TextGenerationRequest.FromString,
+                    response_serializer=model__service__pb2.TextGenerationResponse.SerializeToString,
+            ),
+            'ChatCompletion': grpc.unary_unary_rpc_method_handler(
+                    servicer.ChatCompletion,
+                    request_deserializer=model__service__pb2.ChatCompletionRequest.FromString,
+                    response_serializer=model__service__pb2.ChatCompletionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -252,6 +285,60 @@ class MediaService(object):
             '/model.v1.MediaService/SpeakerAnnote',
             model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
             model__service__pb2.SpeakerAnnoteResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GenerateText(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/model.v1.MediaService/GenerateText',
+            model__service__pb2.TextGenerationRequest.SerializeToString,
+            model__service__pb2.TextGenerationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ChatCompletion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/model.v1.MediaService/ChatCompletion',
+            model__service__pb2.ChatCompletionRequest.SerializeToString,
+            model__service__pb2.ChatCompletionResponse.FromString,
             options,
             channel_credentials,
             insecure,
