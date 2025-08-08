@@ -8,6 +8,8 @@ from proto import model_service_pb2_grpc
 
 # --- 新增：定義與伺服器端匹配的訊息長度限制 ---
 MAX_MESSAGE_LENGTH = 100 * 1024 * 1024
+# --- 增加元數據大小限制 ---
+MAX_METADATA_SIZE = 2 * 1024 * 1024  # 2MB
 
 def run_tts_test(stub, text, language, output_filename):
     """一個輔助函式，用來執行單次 TTS 並儲存結果"""
@@ -164,6 +166,8 @@ def main():
     channel_options = [
         ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
         ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+        ('grpc.max_receive_metadata_size', MAX_METADATA_SIZE),
+        ('grpc.max_send_metadata_size', MAX_METADATA_SIZE),
     ]
     
     with grpc.insecure_channel('localhost:50051', options=channel_options) as channel:

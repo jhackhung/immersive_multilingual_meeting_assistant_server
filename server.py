@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 # --- 定義一個較大的訊息長度，例如 100MB ---
 MAX_MESSAGE_LENGTH = 100 * 1024 * 1024
+# --- 增加元數據大小限制 ---
+MAX_METADATA_SIZE = 2 * 1024 * 1024  # 2MB
 
 class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
     """gRPC 翻譯服務實現"""
@@ -225,6 +227,8 @@ class ServerManager:
             options=[
                 ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
                 ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+                ('grpc.max_receive_metadata_size', MAX_METADATA_SIZE),
+                ('grpc.max_send_metadata_size', MAX_METADATA_SIZE),
             ]
         )
         
