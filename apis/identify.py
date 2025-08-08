@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from pyannote.audio.core.pipeline import Pipeline
 from pyannote.core import Annotation
+from typing import List, Tuple     # 請確保有這兩行
 
 class OfficialRealtimeDiarizer:
     def __init__(self, clustering_threshold: float = 0.7):
@@ -63,7 +64,7 @@ class OfficialRealtimeDiarizer:
             final_segments.append((speaker, segment.start, segment.end))
         
         self.reset()
-        return final_segments
+        return final_segments # <-- 確保回傳的是 final_segments 列表
 
     def reset(self):
         """重置所有狀態"""

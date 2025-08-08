@@ -2,64 +2,110 @@ import grpc
 from proto import model_service_pb2, model_service_pb2_grpc
 import os
 import numpy as np
-import onnxruntime as ort
+import cv2
+import librosa
+import tempfile
+import subprocess
+import sys
 
-def validate_file_format(file_path, expected_formats):
-    if not any(file_path.endswith(fmt) for fmt in expected_formats):
-        raise ValueError(f"檔案格式不正確，期望 {expected_formats}，但得到 {file_path}")
+# 添加模型路徑
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from models.wav2lip_pytorch_model import Wav2LipPytorch
+
+# --- Constants and Configuration ---
+IMG_SIZE = 96
+
+# --- gRPC Service Implementation ---
 
 class Wav2LipServicer(model_service_pb2_grpc.MediaServiceServicer):
-    def __init__(self, model_path="models/wav2lip.onnx"):
-        self.model_path = model_path
-
-        # 初始化 ONNX Runtime
-        print("⏳ 正在載入 Wav2Lip ONNX 模型...")
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if ort.get_device() == 'GPU' else ['CPUExecutionProvider']
-        try:
-            self.onnx_session = ort.InferenceSession(self.model_path, providers=providers)
-            print(f"✅ Wav2Lip ONNX 模型載入成功，使用 provider: {self.onnx_session.get_providers()}")
-        except Exception as e:
-            raise RuntimeError(f"❌ 載入 Wav2Lip ONNX 模型失敗: {e}")
+    def __init__(self, checkpoint_path="models/wav2lip_gan.pth"):
+        self.wav2lip_model = Wav2LipPytorch(checkpoint_path)
+        print("✅ Wav2Lip PyTorch 服務初始化完成")
 
     def Wav2Lip(self, request, context):
-        audio_path = "temp_audio.wav"
-        video_path = "temp_video.mp4"
-        output_video_path = "output_lip_sync.mp4"
-
-        # 將 bytes 寫入臨時檔案
-        with open(audio_path, "wb") as audio_file:
-            audio_file.write(request.audio_data)
-        with open(video_path, "wb") as video_file:
-            video_file.write(request.image_data)
-
+        temp_files = []
         try:
-            validate_file_format(audio_path, [".wav"])
-            validate_file_format(video_path, [".png", ".jpg"])
+            # 創建臨時檔案
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file, \
+                 tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_image_file, \
+                 tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_output_video:
+                
+                temp_audio_path = temp_audio_file.name
+                temp_image_path = temp_image_file.name
+                output_video_path = temp_output_video.name
+                final_output_path = tempfile.mktemp(suffix=".mp4")
+                
+                temp_files.extend([temp_audio_path, temp_image_path, output_video_path, final_output_path])
 
-            # 使用 ONNX Runtime 推理
-            print("⏳ 正在執行 Wav2Lip 模型推理...")
-            onnx_inputs = {
-                "audio": np.fromfile(audio_path, dtype=np.float32),
-                "video": np.fromfile(video_path, dtype=np.float32)
-            }
-            output = self.onnx_session.run(None, onnx_inputs)
+            # 寫入請求數據到臨時檔案
+            with open(temp_audio_path, "wb") as f:
+                f.write(request.audio_data)
+            with open(temp_image_path, "wb") as f:
+                f.write(request.image_data)
 
-            # 將結果寫入輸出影片
-            with open(output_video_path, "wb") as output_file:
-                output_file.write(output[0])
+            print("⏳ 開始 Wav2Lip PyTorch 推理...")
+            
+            # 使用 PyTorch 模型進行推理
+            result_video_path = self.wav2lip_model.inference(
+                image_path=temp_image_path,
+                audio_path=temp_audio_path,
+                output_path=output_video_path
+            )
+            
+            print("⏳ 使用 ffmpeg 合併音訊和影片...")
+            
+            # 檢查 ffmpeg 是否可用
+            try:
+                subprocess.run(['ffmpeg', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                ffmpeg_available = True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                ffmpeg_available = False
+                print("⚠️ ffmpeg 不可用，返回無音訊影片")
+            
+            if ffmpeg_available:
+                # 使用 ffmpeg 合併音訊
+                command = [
+                    'ffmpeg', '-y',
+                    '-i', result_video_path,
+                    '-i', temp_audio_path,
+                    '-c:v', 'libx264',
+                    '-c:a', 'aac',
+                    '-strict', 'experimental',
+                    '-shortest',
+                    final_output_path
+                ]
+                
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode == 0:
+                    output_path = final_output_path
+                    print("✅ ffmpeg 音訊合併成功")
+                else:
+                    print(f"⚠️ ffmpeg 合併失敗: {result.stderr}")
+                    output_path = result_video_path
+            else:
+                output_path = result_video_path
 
-            print("✅ Wav2Lip 模型推理完成，影片已生成。")
-            return model_service_pb2.Wav2LipResponse(video_data=output[0])
+            # 讀取最終影片資料
+            with open(output_path, "rb") as f:
+                final_video_data = f.read()
+            
+            print("✅ Wav2Lip PyTorch 處理完成")
+            return model_service_pb2.Wav2LipResponse(video_data=final_video_data)
 
         except Exception as e:
+            import traceback
+            error_msg = f"Wav2Lip PyTorch 處理出錯: {e}"
+            print(f"❌ {error_msg}")
+            print(f"詳細錯誤: {traceback.format_exc()}")
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"生成對嘴影片失敗: {e}")
+            context.set_details(error_msg)
             return model_service_pb2.Wav2LipResponse()
 
         finally:
-            # 清理臨時檔案
-            os.remove(audio_path)
-            os.remove(video_path)
-            if os.path.exists(output_video_path):
-                os.remove(output_video_path)
-
+            print("🧹 清理臨時檔案...")
+            for path in temp_files:
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except Exception as e:
+                        print(f"⚠️ 無法刪除臨時檔案 {path}: {e}")
