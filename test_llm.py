@@ -15,7 +15,7 @@ def test_llm_direct():
         from apis.llm_service import LLMServicer
         
         print("🔧 初始化 LLM 服務...")
-        servicer = LLMServicer(model_name="gpt2")  # 使用小模型測試
+        servicer = LLMServicer(model_name="microsoft/DialoGPT-medium")  # 使用小模型測試
         
         # 創建假的上下文
         class FakeContext:

@@ -71,6 +71,7 @@ dependencies:
       - fsspec==2025.7.0
       - g2pkk==0.1.2
       - grpcio==1.74.0
+      - grpcio-tools==1.74.0  # gRPC 工具
       - gruut==2.4.0
       - gruut-ipa==0.13.0
       - gruut-lang-de==2.0.1
@@ -116,6 +117,8 @@ dependencies:
       - numpy==1.26.4
       - onnx==1.18.0
       - onnxruntime==1.22.1
+      - openai-whisper==20250625  # 語音識別
+      - tiktoken==0.11.0  # Whisper 依賴
       - opencv-python
       - packaging==25.0
       - pandas==1.5.3

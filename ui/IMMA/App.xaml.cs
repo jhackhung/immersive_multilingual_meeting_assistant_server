@@ -11,7 +11,7 @@
         {
             var window = new Window(new AppShell());
             window.Width = 800;
-            window.Height = 800;
+            window.Height = 920;
             return window;
         }
     }

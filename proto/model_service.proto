@@ -1,6 +1,8 @@
 // 檔案: model_service.proto
 syntax = "proto3";
 
+option csharp_namespace = "IMMA.Grpc";
+
 package model.v1;
 
 // 我們可以將服務名稱改得更貼切，例如 TranslatorService
@@ -19,6 +21,9 @@ service MediaService {
 
   // 3. SpeakerAnnote (Speaker Annotation/Diarization): 說話者日誌
   rpc SpeakerAnnote(SpeakerAnnoteRequest) returns (SpeakerAnnoteResponse) {}
+
+  // 4. SpeechRecognition (Speech-to-Text): 語音識別
+  rpc SpeechRecognition(SpeechRecognitionRequest) returns (SpeechRecognitionResponse) {}
 
   // LLM 服務
   rpc GenerateText(TextGenerationRequest) returns (TextGenerationResponse);
@@ -95,6 +100,42 @@ message SpeakerAnnoteResponse {
 
   // 格式二：按說話者分組的時間軸，對應 get_speaker_timeline 的回傳
   repeated SpeakerTimeline speaker_timelines = 2;
+}
+
+// SpeechRecognition 請求
+message SpeechRecognitionRequest {
+  // 音訊檔案的原始 bytes 資料
+  bytes audio_data = 1;
+  // 語言代碼 (可選, 例如 "en", "zh", "auto" 表示自動檢測)
+  string language = 2;
+  // 是否返回時間戳訊息
+  bool return_timestamps = 3;
+  // 模型大小 (可選, 例如 "base", "small", "medium", "large")
+  string model_size = 4;
+}
+
+// 語音識別片段 (包含時間戳)
+message TranscriptionSegment {
+  // 片段文本
+  string text = 1;
+  // 開始時間 (秒)
+  double start_time = 2;
+  // 結束時間 (秒)
+  double end_time = 3;
+}
+
+// SpeechRecognition 回應
+message SpeechRecognitionResponse {
+  // 完整轉錄文本
+  string transcribed_text = 1;
+  // 檢測到的語言
+  string detected_language = 2;
+  // 語言檢測置信度
+  float language_confidence = 3;
+  // 時間戳片段 (如果請求時啟用)
+  repeated TranscriptionSegment segments = 4;
+  // 處理是否成功
+  bool success = 5;
 }
 
 // 文本生成請求

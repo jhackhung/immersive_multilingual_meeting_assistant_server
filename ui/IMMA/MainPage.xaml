@@ -1,47 +1,48 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="IMMA.MainPage"
-             Title="Immersive Multilingual Meeting Assistant"
-             BackgroundColor="#6A5ACD"
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"  
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"  
+             xmlns:idk="clr-namespace:Indiko.Maui.Controls.Markdown;assembly=Indiko.Maui.Controls.Markdown"
+             x:Class="IMMA.MainPage"  
+             Title="Immersive Multilingual Meeting Assistant"  
+             BackgroundColor="#6A5ACD"  
              Shell.NavBarIsVisible="False">
 
     <ScrollView>
-        <Grid RowDefinitions="Auto, Auto, Auto, Auto"
-              ColumnDefinitions="*,*"
-              Padding="20"
-              RowSpacing="20"
+        <Grid RowDefinitions="Auto, Auto, Auto, Auto"  
+              ColumnDefinitions="*,*"  
+              Padding="10"  
+              RowSpacing="20"  
               ColumnSpacing="20">
 
             <!-- 標頭 -->
-            <Frame Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" CornerRadius="15" Padding="20" BackgroundColor="White" HasShadow="True" IsVisible="False">
+            <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" StrokeShape="RoundRectangle 15" Padding="20" BackgroundColor="White" StrokeThickness="1" IsVisible="False">
                 <VerticalStackLayout HorizontalOptions="Center" Spacing="15">
                     <Label Text="Immersive Multilingual Meeting Assistant" FontSize="24" FontAttributes="Bold" TextColor="#4a5568" HorizontalTextAlignment="Center" />
                     <HorizontalStackLayout Spacing="20" HorizontalOptions="Center">
-                        <Frame CornerRadius="20" Padding="10, 5" BackgroundColor="#e2e8f0">
+                        <Border StrokeShape="RoundRectangle 20" Padding="10, 5" BackgroundColor="#e2e8f0">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView Color="#10b981" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
                                 <Label Text="即時翻譯" FontSize="14" />
                             </HorizontalStackLayout>
-                        </Frame>
-                        <Frame CornerRadius="20" Padding="10, 5" BackgroundColor="#e2e8f0">
+                        </Border>
+                        <Border StrokeShape="RoundRectangle 20" Padding="10, 5" BackgroundColor="#e2e8f0">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView Color="#10b981" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
                                 <Label Text="語音辨識" FontSize="14" />
                             </HorizontalStackLayout>
-                        </Frame>
-                        <Frame CornerRadius="20" Padding="10, 5" BackgroundColor="#e2e8f0">
+                        </Border>
+                        <Border StrokeShape="RoundRectangle 20" Padding="10, 5" BackgroundColor="#e2e8f0">
                             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                                 <BoxView Color="#10b981" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
                                 <Label Text="數位分身" FontSize="14" />
                             </HorizontalStackLayout>
-                        </Frame>
+                        </Border>
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- 雙向即時翻譯面板 -->
-            <Frame Grid.Row="1" Grid.Column="0" CornerRadius="15" Padding="25" BackgroundColor="White" HasShadow="True">
+            <Border Grid.Row="1" Grid.Column="0" StrokeShape="RoundRectangle 15" Padding="25" BackgroundColor="White" StrokeThickness="1">
                 <VerticalStackLayout Spacing="20">
                     <Label Text="🌐 雙向即時翻譯" FontSize="18" FontAttributes="Bold" TextColor="#2d3748" />
 
@@ -51,10 +52,9 @@
                             <Picker x:Name="SourceLangPicker" SelectedIndex="0">
                                 <Picker.ItemsSource>
                                     <x:Array Type="{x:Type x:String}">
-                                        <x:String>繁體中文</x:String>
-                                        <x:String>簡體中文</x:String>
+                                        <x:String>中文</x:String>
                                         <x:String>English</x:String>
-                                        <x:String>日本語</x:String>
+                                        <x:String>日文</x:String>
                                     </x:Array>
                                 </Picker.ItemsSource>
                             </Picker>
@@ -64,66 +64,119 @@
                             <Picker x:Name="TargetLangPicker" SelectedIndex="2">
                                 <Picker.ItemsSource>
                                     <x:Array Type="{x:Type x:String}">
-                                        <x:String>繁體中文</x:String>
-                                        <x:String>簡體中文</x:String>
+                                        <x:String>中文</x:String>
                                         <x:String>English</x:String>
-                                        <x:String>日本語</x:String>
+                                        <x:String>日文</x:String>
                                     </x:Array>
                                 </Picker.ItemsSource>
                             </Picker>
                         </VerticalStackLayout>
                     </HorizontalStackLayout>
 
-                    <Frame BorderColor="#e2e8f0" CornerRadius="12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150">
+                    <Border StrokeShape="RoundRectangle 12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150" StrokeThickness="1">
                         <VerticalStackLayout Spacing="10">
                             <Label Text="🎤 原始語音" FontAttributes="Bold" />
                             <Editor x:Name="SourceTextEditor" Text="等待語音輸入..." HeightRequest="100" AutoSize="Disabled"/>
-                            <Button x:Name="MicButton" Text="🎤 開始錄音" BackgroundColor="#ef4444" TextColor="White" CornerRadius="6" />
+                            <Button x:Name="MicButton" Text="🎤 開始錄音" BackgroundColor="#ef4444" TextColor="White" CornerRadius="6" Clicked="OnTranslateRecording"/>
                         </VerticalStackLayout>
-                    </Frame>
+                    </Border>
 
-                    <Frame BorderColor="#e2e8f0" CornerRadius="12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150">
+                    <Border StrokeShape="RoundRectangle 12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150" StrokeThickness="1">
                         <VerticalStackLayout Spacing="10">
                             <Label Text="🔄 翻譯結果" FontAttributes="Bold" />
                             <Editor x:Name="TranslatedTextEditor" Text="翻譯結果將顯示在這裡..." HeightRequest="100" AutoSize="Disabled"/>
                             <HorizontalStackLayout Spacing="10">
-                                <Button x:Name="SpeakButton" Text="🔊 播放語音" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" />
-                                <Button x:Name="CopyButton" Text="📋 複製文字" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" />
+                                <Button x:Name="TranslateButton" Text="🔊 翻譯" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnTranslateClicked"/>
+                                <Button x:Name="SpeakButton" Text="🔊 播放" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnPlayTranslateAudio"/>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
-                    </Frame>
+                    </Border>
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- 會議記錄與分析面板 -->
-            <Frame Grid.Row="1" Grid.Column="1" CornerRadius="15" Padding="25" BackgroundColor="White" HasShadow="True">
+            <Border Grid.Row="1" Grid.Column="1" StrokeShape="RoundRectangle 15" Padding="25" BackgroundColor="White" StrokeThickness="1">
                 <VerticalStackLayout Spacing="20">
                     <Label Text="📝 會議記錄與分析" FontSize="18" FontAttributes="Bold" TextColor="#2d3748" />
 
-                    <!-- 在 .NET MAUI 中，我們通常使用 TabView 來實現頁籤功能 -->
-                    <Label Text="逐字稿 / 重點整理 (此處可用 TabView)" HorizontalTextAlignment="Center" />
+                    <!-- TabView for transcript and summary -->
+                    <Border StrokeShape="RoundRectangle 12" Padding="0" BackgroundColor="#f8fafc" StrokeThickness="1">
+                        <Grid RowDefinitions="Auto, *">
+                            <!-- Tab Headers -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*, *">
+                                <Button x:Name="TranscriptTabButton" Grid.Column="0" Text="逐字稿"   
+                                        BackgroundColor="#3b82f6" TextColor="White"   
+                                        CornerRadius="0" Margin="0" HeightRequest="40"  
+                                        Clicked="OnTranscriptTabClicked"/>
+                                <Button x:Name="SummaryTabButton" Grid.Column="1" Text="重點整理"   
+                                        BackgroundColor="#e2e8f0" TextColor="#4a5568"   
+                                        CornerRadius="0" Margin="0" HeightRequest="40"  
+                                        Clicked="OnSummaryTabClicked"/>
+                            </Grid>
 
-                    <ScrollView HeightRequest="300">
-                        <VerticalStackLayout x:Name="TranscriptArea">
-                            <!-- 逐字稿項目會動態新增於此 -->
-                            <Frame Padding="10" BorderColor="#3b82f6">
-                                <VerticalStackLayout>
-                                    <Label Text="13:30:15" FontSize="12" TextColor="#64748b"/>
-                                    <Label Text="主持人 (張經理)" FontAttributes="Bold" TextColor="#1e40af"/>
-                                    <Label Text="大家好，歡迎參加今天的產品規劃會議..."/>
-                                </VerticalStackLayout>
-                            </Frame>
-                        </VerticalStackLayout>
-                    </ScrollView>
+                            <!-- Tab Content -->
+                            <Grid Grid.Row="1">
+                                <!-- Transcript Tab -->
+                                <ScrollView x:Name="TranscriptTab" HeightRequest="400"  IsVisible="true">
+                                    <VerticalStackLayout x:Name="TranscriptArea">
+                                    </VerticalStackLayout>
+                                </ScrollView>
+
+                                <!-- Summary Tab -->
+                                <ScrollView x:Name="SummaryTab" HeightRequest="400" IsVisible="false">
+                                    <VerticalStackLayout Padding="15">
+                                        <idk:MarkdownView x:Name="SummaryMarkdown"
+                                                         
+                          H1FontSize="22"
+                          H2FontSize="20"
+                          H3FontSize="18"
+                          CodeBlockFontFace="CamingoCodeRegular"
+                          CodeBlockFontSize="12"
+                          BlockQuoteFontFace="CamingoCodeItalic"
+                          TextFontFace="OpenSans"
+                          TextFontSize="14"
+                          TableHeaderFontFace="OpenSans"
+                          TableHeaderFontSize="14"
+                          TableRowFontFace="OpenSans"
+                          TableRowFontSize="12"
+                          ImageAspect="Fill"
+                          ParagraphSpacing="1.3">
+                                        </idk:MarkdownView>
+                                    </VerticalStackLayout>
+                                </ScrollView>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <HorizontalStackLayout Spacing="10" >
+                        <Button x:Name="SpeakerRecognitionButton" Text="🎯 辨識講者" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSpeakerRecognitionClicked" />
+                        <Button x:Name="GenerateSummaryButton" Text="📝 生成摘要" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSummaryButtonClicked"/>
+                    </HorizontalStackLayout>
+                    <!--<ScrollView HeightRequest="300">  
+                        <VerticalStackLayout x:Name="TranscriptHistory">  
+                            -->
+                    <!-- Previous transcript history can be moved here if needed -->
+                    <!--  
+                        </VerticalStackLayout>  
+                    </ScrollView>-->
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <!-- 控制項 -->
-            <Frame Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" CornerRadius="15" Padding="20" BackgroundColor="White" HasShadow="True">
+            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" StrokeShape="RoundRectangle 15" Padding="20" BackgroundColor="White" StrokeThickness="1">
                 <FlexLayout JustifyContent="SpaceBetween" AlignItems="Center" Wrap="Wrap">
 
                     <HorizontalStackLayout Spacing="15" VerticalOptions="Center">
-                        <Image Source="avatar_placeholder.png" WidthRequest="120" HeightRequest="90" Aspect="AspectFill" />
+                        <VerticalStackLayout Spacing="5" WidthRequest="120">
+                            <ImageButton x:Name="AvatarImageButton" 
+                                        Source="avatar_placeholder.png" 
+                                        WidthRequest="120" 
+                                        HeightRequest="90" 
+                                        Aspect="AspectFill"
+                                         Margin="5"
+                                        CornerRadius="8"
+                                        BackgroundColor="Transparent"
+                                        Clicked="OnAvatarImageButtonClicked" />
+                        </VerticalStackLayout>
                         <VerticalStackLayout Spacing="8">
                             <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
                                 <Label Text="🤖 自動回覆：" VerticalOptions="Center"/>
@@ -137,18 +190,18 @@
                     </HorizontalStackLayout>
 
                     <HorizontalStackLayout Spacing="10">
-                        <Button Text="🚀 開始會議" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" />
-                        <Button Text="⏸️ 暫停" BackgroundColor="#10b981" TextColor="White" CornerRadius="8" />
-                        <Button Text="⏹️ 結束會議" BackgroundColor="#ef4444" TextColor="White" CornerRadius="8" />
+                        <Button x:Name="StartButton" Text="🚀 開始會議" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnStartButtonClicked"/>
+                        <!--<Button Text="⏸️ 暫停" BackgroundColor="#10b981" TextColor="White" CornerRadius="8" />-->
+                        <Button x:Name="StopButton" IsEnabled="False"  Text="⏹️ 結束會議" BackgroundColor="#e2e8f0" TextColor="#4a5568" CornerRadius="8" Clicked="OnStopButtonClicked" />
                     </HorizontalStackLayout>
 
                     <HorizontalStackLayout Spacing="10">
-                        <Button Text="📤 匯出逐字稿" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" />
-                        <Button Text="💾 儲存摘要" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" />
+                        <Button Text="📤 匯出會議記錄" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnExportMeetingClicked"/>
+                        <Button Text="📥 載入會議記錄" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnImportMeetingClicked" />
                     </HorizontalStackLayout>
 
                 </FlexLayout>
-            </Frame>
+            </Border>
 
         </Grid>
     </ScrollView>

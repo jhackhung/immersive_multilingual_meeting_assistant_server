@@ -14,6 +14,7 @@ from apis.wav2lip_service import Wav2LipServicer
 from apis.translator_service import TranslatorService
 from apis.tts_service import TtsServicer
 from apis.llm_service import LLMServicer
+from apis.speech_recognition_service import SpeechRecognitionServicer
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -51,12 +52,13 @@ class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
 class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     """統一的媒體服務實現"""
     
-    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer):
+    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer):
         self.tts_servicer = tts_servicer
         self.wav2lip_servicer = wav2lip_servicer
         self.speaker_annote_servicer = speaker_annote_servicer
-        self.llm_servicer = llm_servicer  
-        logger.info("MediaServicer 已初始化（包含 LLM 服務）")
+        self.llm_servicer = llm_servicer
+        self.speech_recognition_servicer = speech_recognition_servicer
+        logger.info("MediaServicer 已初始化（包含 LLM 和語音識別服務）")
     
     def Tts(self, request, context):
         logger.info("收到 TTS 請求")
@@ -69,6 +71,17 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     def SpeakerAnnote(self, request, context):
         logger.info("收到 SpeakerAnnote 請求")
         return self.speaker_annote_servicer.SpeakerAnnote(request, context)
+    
+    def SpeechRecognition(self, request, context):
+        logger.info("收到 SpeechRecognition 請求")
+        if self.speech_recognition_servicer:
+            return self.speech_recognition_servicer.SpeechRecognition(request, context)
+        else:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("語音識別服務未啟用")
+            return model_service_pb2.SpeechRecognitionResponse(
+                success=False
+            )
     
     def GenerateText(self, request, context):
         logger.info("收到 GenerateText 請求")
@@ -220,6 +233,7 @@ class ServerManager:
         self.wav2lip_servicer = None
         self.speaker_annote_servicer = None
         self.llm_servicer = None
+        self.speech_recognition_servicer = None
         self.server = None
         
     def initialize_models(self) -> bool:
@@ -239,6 +253,18 @@ class ServerManager:
             self.speaker_annote_servicer = SpeakerAnnoteServicer()
             if not self.speaker_annote_servicer.initialize():
                 logger.warning("語者辨識服務初始化失敗，但繼續啟動其他服務")
+            
+            logger.info("正在初始化語音識別服務...")
+            try:
+                self.speech_recognition_servicer = SpeechRecognitionServicer(model_size="base")
+                if self.speech_recognition_servicer.initialize():
+                    logger.info("✅ 語音識別服務初始化成功")
+                else:
+                    logger.warning("❌ 語音識別服務初始化失敗，但繼續啟動其他服務")
+                    self.speech_recognition_servicer = None
+            except Exception as e:
+                logger.warning(f"❌ 語音識別服務初始化失敗: {e}，但繼續啟動其他服務")
+                self.speech_recognition_servicer = None
             
             logger.info("正在初始化 LLM 服務...")
             try:
@@ -276,12 +302,13 @@ class ServerManager:
             self.server
         )
         
-        # 修改 MediaServicer 初始化，加入 LLM 服務
+        # 修改 MediaServicer 初始化，加入 LLM 和語音識別服務
         media_servicer = MediaServicer(
             tts_servicer=self.tts_servicer,
             wav2lip_servicer=self.wav2lip_servicer,
             speaker_annote_servicer=self.speaker_annote_servicer,
-            llm_servicer=self.llm_servicer  # 添加 LLM 服務
+            llm_servicer=self.llm_servicer,
+            speech_recognition_servicer=self.speech_recognition_servicer
         )
         model_service_pb2_grpc.add_MediaServiceServicer_to_server(
             media_servicer, 
@@ -289,7 +316,7 @@ class ServerManager:
         )
         
         self.server.add_insecure_port('0.0.0.0:50051')
-        logger.info("gRPC 伺服器設定完成（包含 LLM 服務）")
+        logger.info("gRPC 伺服器設定完成（包含 LLM 和語音識別服務）")
     
     def start_server(self):
         if not self.initialize_models():
@@ -303,6 +330,8 @@ class ServerManager:
         services = ["🔤 翻譯服務", "🔊 TTS 服務", "🎬 Wav2Lip 服務"]
         if self.speaker_annote_servicer:
             services.append("👥 語者辨識服務")
+        if self.speech_recognition_servicer:
+            services.append("🎤 語音識別服務")
         if self.llm_servicer:
             services.append("🤖 LLM 服務")
         

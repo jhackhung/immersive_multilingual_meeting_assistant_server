@@ -24,13 +24,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13model_service.proto\x12\x08model.v1\"_\n\x10TranslateRequest\x12\x19\n\x11text_to_translate\x18\x01 \x01(\t\x12\x17\n\x0fsource_language\x18\x02 \x01(\t\x12\x17\n\x0ftarget_language\x18\x03 \x01(\t\",\n\x11TranslateResponse\x12\x17\n\x0ftranslated_text\x18\x01 \x01(\t\"8\n\x0eWav2LipRequest\x12\x12\n\naudio_data\x18\x01 \x01(\x0c\x12\x12\n\nimage_data\x18\x02 \x01(\x0c\"%\n\x0fWav2LipResponse\x12\x12\n\nvideo_data\x18\x01 \x01(\x0c\"N\n\nTtsRequest\x12\x15\n\rtext_to_speak\x18\x01 \x01(\t\x12\x17\n\x0freference_audio\x18\x02 \x01(\x0c\x12\x10\n\x08language\x18\x03 \x01(\t\"&\n\x0bTtsResponse\x12\x17\n\x0fgenerated_audio\x18\x01 \x01(\x0c\"*\n\x14SpeakerAnnoteRequest\x12\x12\n\naudio_data\x18\x01 \x01(\x0c\"K\n\x12\x44iarizationSegment\x12\x0f\n\x07speaker\x18\x01 \x01(\t\x12\x12\n\nstart_time\x18\x02 \x01(\x01\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x01\"R\n\x0fSpeakerTimeline\x12\x0f\n\x07speaker\x18\x01 \x01(\t\x12.\n\x08segments\x18\x02 \x03(\x0b\x32\x1c.model.v1.DiarizationSegment\"\x81\x01\n\x15SpeakerAnnoteResponse\x12\x32\n\x0c\x61ll_segments\x18\x01 \x03(\x0b\x32\x1c.model.v1.DiarizationSegment\x12\x34\n\x11speaker_timelines\x18\x02 \x03(\x0b\x32\x19.model.v1.SpeakerTimeline\"_\n\x15TextGenerationRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x12\n\nmax_tokens\x18\x02 \x01(\x05\x12\x13\n\x0btemperature\x18\x03 \x01(\x02\x12\r\n\x05top_p\x18\x04 \x01(\x02\"A\n\x16TextGenerationResponse\x12\x16\n\x0egenerated_text\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\",\n\x0b\x43hatMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"i\n\x15\x43hatCompletionRequest\x12\'\n\x08messages\x18\x01 \x03(\x0b\x32\x15.model.v1.ChatMessage\x12\x12\n\nmax_tokens\x18\x02 \x01(\x05\x12\x13\n\x0btemperature\x18\x03 \x01(\x02\";\n\x16\x43hatCompletionResponse\x12\x10\n\x08response\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x32[\n\x11TranslatorService\x12\x46\n\tTranslate\x12\x1a.model.v1.TranslateRequest\x1a\x1b.model.v1.TranslateResponse\"\x00\x32\x82\x03\n\x0cMediaService\x12@\n\x07Wav2Lip\x12\x18.model.v1.Wav2LipRequest\x1a\x19.model.v1.Wav2LipResponse\"\x00\x12\x34\n\x03Tts\x12\x14.model.v1.TtsRequest\x1a\x15.model.v1.TtsResponse\"\x00\x12R\n\rSpeakerAnnote\x12\x1e.model.v1.SpeakerAnnoteRequest\x1a\x1f.model.v1.SpeakerAnnoteResponse\"\x00\x12Q\n\x0cGenerateText\x12\x1f.model.v1.TextGenerationRequest\x1a .model.v1.TextGenerationResponse\x12S\n\x0e\x43hatCompletion\x12\x1f.model.v1.ChatCompletionRequest\x1a .model.v1.ChatCompletionResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13model_service.proto\x12\x08model.v1\"_\n\x10TranslateRequest\x12\x19\n\x11text_to_translate\x18\x01 \x01(\t\x12\x17\n\x0fsource_language\x18\x02 \x01(\t\x12\x17\n\x0ftarget_language\x18\x03 \x01(\t\",\n\x11TranslateResponse\x12\x17\n\x0ftranslated_text\x18\x01 \x01(\t\"8\n\x0eWav2LipRequest\x12\x12\n\naudio_data\x18\x01 \x01(\x0c\x12\x12\n\nimage_data\x18\x02 \x01(\x0c\"%\n\x0fWav2LipResponse\x12\x12\n\nvideo_data\x18\x01 \x01(\x0c\"N\n\nTtsRequest\x12\x15\n\rtext_to_speak\x18\x01 \x01(\t\x12\x17\n\x0freference_audio\x18\x02 \x01(\x0c\x12\x10\n\x08language\x18\x03 \x01(\t\"&\n\x0bTtsResponse\x12\x17\n\x0fgenerated_audio\x18\x01 \x01(\x0c\"*\n\x14SpeakerAnnoteRequest\x12\x12\n\naudio_data\x18\x01 \x01(\x0c\"K\n\x12\x44iarizationSegment\x12\x0f\n\x07speaker\x18\x01 \x01(\t\x12\x12\n\nstart_time\x18\x02 \x01(\x01\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x01\"R\n\x0fSpeakerTimeline\x12\x0f\n\x07speaker\x18\x01 \x01(\t\x12.\n\x08segments\x18\x02 \x03(\x0b\x32\x1c.model.v1.DiarizationSegment\"\x81\x01\n\x15SpeakerAnnoteResponse\x12\x32\n\x0c\x61ll_segments\x18\x01 \x03(\x0b\x32\x1c.model.v1.DiarizationSegment\x12\x34\n\x11speaker_timelines\x18\x02 \x03(\x0b\x32\x19.model.v1.SpeakerTimeline\"o\n\x18SpeechRecognitionRequest\x12\x12\n\naudio_data\x18\x01 \x01(\x0c\x12\x10\n\x08language\x18\x02 \x01(\t\x12\x19\n\x11return_timestamps\x18\x03 \x01(\x08\x12\x12\n\nmodel_size\x18\x04 \x01(\t\"J\n\x14TranscriptionSegment\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\x12\n\nstart_time\x18\x02 \x01(\x01\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x01\"\xb0\x01\n\x19SpeechRecognitionResponse\x12\x18\n\x10transcribed_text\x18\x01 \x01(\t\x12\x19\n\x11\x64\x65tected_language\x18\x02 \x01(\t\x12\x1b\n\x13language_confidence\x18\x03 \x01(\x02\x12\x30\n\x08segments\x18\x04 \x03(\x0b\x32\x1e.model.v1.TranscriptionSegment\x12\x0f\n\x07success\x18\x05 \x01(\x08\"_\n\x15TextGenerationRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x12\n\nmax_tokens\x18\x02 \x01(\x05\x12\x13\n\x0btemperature\x18\x03 \x01(\x02\x12\r\n\x05top_p\x18\x04 \x01(\x02\"A\n\x16TextGenerationResponse\x12\x16\n\x0egenerated_text\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\",\n\x0b\x43hatMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"i\n\x15\x43hatCompletionRequest\x12\'\n\x08messages\x18\x01 \x03(\x0b\x32\x15.model.v1.ChatMessage\x12\x12\n\nmax_tokens\x18\x02 \x01(\x05\x12\x13\n\x0btemperature\x18\x03 \x01(\x02\";\n\x16\x43hatCompletionResponse\x12\x10\n\x08response\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x32[\n\x11TranslatorService\x12\x46\n\tTranslate\x12\x1a.model.v1.TranslateRequest\x1a\x1b.model.v1.TranslateResponse\"\x00\x32\xe2\x03\n\x0cMediaService\x12@\n\x07Wav2Lip\x12\x18.model.v1.Wav2LipRequest\x1a\x19.model.v1.Wav2LipResponse\"\x00\x12\x34\n\x03Tts\x12\x14.model.v1.TtsRequest\x1a\x15.model.v1.TtsResponse\"\x00\x12R\n\rSpeakerAnnote\x12\x1e.model.v1.SpeakerAnnoteRequest\x1a\x1f.model.v1.SpeakerAnnoteResponse\"\x00\x12^\n\x11SpeechRecognition\x12\".model.v1.SpeechRecognitionRequest\x1a#.model.v1.SpeechRecognitionResponse\"\x00\x12Q\n\x0cGenerateText\x12\x1f.model.v1.TextGenerationRequest\x1a .model.v1.TextGenerationResponse\x12S\n\x0e\x43hatCompletion\x12\x1f.model.v1.ChatCompletionRequest\x1a .model.v1.ChatCompletionResponseB\x0c\xaa\x02\tIMMA.Grpcb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'model_service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
+  _globals['DESCRIPTOR']._loaded_options = None
+  _globals['DESCRIPTOR']._serialized_options = b'\252\002\tIMMA.Grpc'
   _globals['_TRANSLATEREQUEST']._serialized_start=33
   _globals['_TRANSLATEREQUEST']._serialized_end=128
   _globals['_TRANSLATERESPONSE']._serialized_start=130
@@ -51,18 +52,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SPEAKERTIMELINE']._serialized_end=596
   _globals['_SPEAKERANNOTERESPONSE']._serialized_start=599
   _globals['_SPEAKERANNOTERESPONSE']._serialized_end=728
-  _globals['_TEXTGENERATIONREQUEST']._serialized_start=730
-  _globals['_TEXTGENERATIONREQUEST']._serialized_end=825
-  _globals['_TEXTGENERATIONRESPONSE']._serialized_start=827
-  _globals['_TEXTGENERATIONRESPONSE']._serialized_end=892
-  _globals['_CHATMESSAGE']._serialized_start=894
-  _globals['_CHATMESSAGE']._serialized_end=938
-  _globals['_CHATCOMPLETIONREQUEST']._serialized_start=940
-  _globals['_CHATCOMPLETIONREQUEST']._serialized_end=1045
-  _globals['_CHATCOMPLETIONRESPONSE']._serialized_start=1047
-  _globals['_CHATCOMPLETIONRESPONSE']._serialized_end=1106
-  _globals['_TRANSLATORSERVICE']._serialized_start=1108
-  _globals['_TRANSLATORSERVICE']._serialized_end=1199
-  _globals['_MEDIASERVICE']._serialized_start=1202
-  _globals['_MEDIASERVICE']._serialized_end=1588
+  _globals['_SPEECHRECOGNITIONREQUEST']._serialized_start=730
+  _globals['_SPEECHRECOGNITIONREQUEST']._serialized_end=841
+  _globals['_TRANSCRIPTIONSEGMENT']._serialized_start=843
+  _globals['_TRANSCRIPTIONSEGMENT']._serialized_end=917
+  _globals['_SPEECHRECOGNITIONRESPONSE']._serialized_start=920
+  _globals['_SPEECHRECOGNITIONRESPONSE']._serialized_end=1096
+  _globals['_TEXTGENERATIONREQUEST']._serialized_start=1098
+  _globals['_TEXTGENERATIONREQUEST']._serialized_end=1193
+  _globals['_TEXTGENERATIONRESPONSE']._serialized_start=1195
+  _globals['_TEXTGENERATIONRESPONSE']._serialized_end=1260
+  _globals['_CHATMESSAGE']._serialized_start=1262
+  _globals['_CHATMESSAGE']._serialized_end=1306
+  _globals['_CHATCOMPLETIONREQUEST']._serialized_start=1308
+  _globals['_CHATCOMPLETIONREQUEST']._serialized_end=1413
+  _globals['_CHATCOMPLETIONRESPONSE']._serialized_start=1415
+  _globals['_CHATCOMPLETIONRESPONSE']._serialized_end=1474
+  _globals['_TRANSLATORSERVICE']._serialized_start=1476
+  _globals['_TRANSLATORSERVICE']._serialized_end=1567
+  _globals['_MEDIASERVICE']._serialized_start=1570
+  _globals['_MEDIASERVICE']._serialized_end=2052
 # @@protoc_insertion_point(module_scope)
