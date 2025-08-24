@@ -28,6 +28,9 @@ service MediaService {
   // LLM 服務
   rpc GenerateText(TextGenerationRequest) returns (TextGenerationResponse);
   rpc ChatCompletion(ChatCompletionRequest) returns (ChatCompletionResponse);
+
+  // 新增的 RAG 問答 RPC
+  rpc AnswerQuestionFromDocuments(AnswerQuestionRequest) returns (AnswerQuestionResponse);
 }
 
 // 定義請求的資料結構
@@ -169,4 +172,18 @@ message ChatCompletionRequest {
 message ChatCompletionResponse {
     string response = 1;
     bool success = 2;
+}
+
+// --- 新增的 RAG 問答訊息 ---
+
+// RAG 問答請求
+message AnswerQuestionRequest {
+    string query = 1; // 使用者的問題
+}
+
+// RAG 問答回應
+message AnswerQuestionResponse {
+    string answer = 1;       // 模型生成的回應
+    repeated string sources = 2; // 答案參考的文件來源
+    bool success = 3;        // 是否成功
 }

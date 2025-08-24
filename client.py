@@ -9,6 +9,33 @@ MAX_MESSAGE_LENGTH = 100 * 1024 * 1024
 # --- 增加元數據大小限制 ---
 MAX_METADATA_SIZE = 2 * 1024 * 1024  # 2MB
 
+def run_rag_qa_test(stub, query):
+    """測試 RAG 問答功能"""
+    print(f"\n[客戶端] 發送 RAG 問答請求: '{query}'")
+    
+    try:
+        # 準備請求物件
+        request = model_service_pb2.AnswerQuestionRequest(query=query)
+        
+        # 呼叫遠端的 AnswerQuestionFromDocuments 服務
+        response = stub.AnswerQuestionFromDocuments(request)
+        
+        # 檢查回應
+        if response.success:
+            print(f"✅ [客戶端] RAG 問答成功:")
+            print(f"🤖 模型回答: {response.answer}")
+            if response.sources:
+                print(f"📚 參考來源:")
+                for source in response.sources:
+                    print(f"  - {source}")
+        else:
+            print("❌ [客戶端] RAG 問答失敗")
+            
+    except grpc.RpcError as e:
+        print(f"❌ [客戶端] RAG 問答請求失敗: {e.code()} - {e.details()}")
+    except Exception as e:
+        print(f"❌ [客戶端] 處理 RAG 問答時發生錯誤: {e}")
+
 def run_tts_test(stub, text, language, output_filename):
     """一個輔助函式，用來執行單次 TTS 並儲存結果"""
     print(f"\n[客戶端] 發送 TTS 請求: '{text}' (語言: {language})")
@@ -271,7 +298,7 @@ def run_llm_comprehensive_test(stub):
     
     role_conversations = [
         [
-            {"role": "system", "content": "You are a helpful programming assistant."},
+            {"role": "system", "content": "You are a helpful programming assistant."}, 
             {"role": "user", "content": "Explain what is Python programming language."}
         ],
         [
@@ -279,7 +306,7 @@ def run_llm_comprehensive_test(stub):
             {"role": "user", "content": "請解釋什麼是機器學習。"},
         ],
         [
-            {"role": "system", "content": "You are a creative writer who loves storytelling."},
+            {"role": "system", "content": "You are a creative writer who loves storytelling."}, 
             {"role": "user", "content": "Write the beginning of a short story about robots."}
         ]
     ]
@@ -331,10 +358,16 @@ def main():
         media_stub = model_service_pb2_grpc.MediaServiceStub(channel)
 
         print("\n" + "="*60)
-        print("🚀 開始測試所有服務功能（包含 LLM）")
+        print("🚀 開始測試所有服務功能")
         print("="*60)
 
-        # --- 新增：執行 LLM 測試 ---
+        # --- 執行 RAG 問答測試 ---
+        print("\n📚 測試 RAG 問答服務:")
+        print("-" * 30)
+        run_rag_qa_test(media_stub, "預算超支多少？")
+        run_rag_qa_test(media_stub, "What is the core function of the immersive assistant?")
+
+        # --- 執行 LLM 測試 ---
         run_llm_comprehensive_test(media_stub)
 
         # --- 執行翻譯測試 ---
@@ -395,7 +428,7 @@ def main():
             print(f"   請確認 '{audio_file_path}' 和 '{image_file_path}' 是否存在。")
 
         print("\n" + "="*60)
-        print("✅ 所有測試完成（包含 LLM）！")
+        print("✅ 所有測試完成！")
         print("="*60)
 
 if __name__ == '__main__':

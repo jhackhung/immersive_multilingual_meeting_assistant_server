@@ -1,6 +1,6 @@
 import grpc
 import logging
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoConfig, pipeline
 import torch
 from proto import model_service_pb2, model_service_pb2_grpc
 
@@ -26,9 +26,23 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
         print(f"🔧 使用設備: {self.device}")
         
         try:
-            # 載入 tokenizer 和模型
+            # 載入 tokenizer 和模型配置
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(
+            config = AutoConfig.from_pretrained(model_name)
+
+            # 根據模型類型選擇對應的 AutoModel 和 pipeline 任務
+            if getattr(config, "is_encoder_decoder", False):
+                ModelClass = AutoModelForSeq2SeqLM
+                pipeline_task = "text2text-generation"
+                self.model_type = "seq2seq"
+                print("🔍 檢測到 Seq2Seq 模型架構")
+            else:
+                ModelClass = AutoModelForCausalLM
+                pipeline_task = "text-generation"
+                self.model_type = "causal"
+                print("🔍 檢測到 Causal LM 模型架構")
+
+            self.model = ModelClass.from_pretrained(
                 model_name,
                 torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
                 device_map="auto" if self.device.type == "cuda" else None
@@ -40,7 +54,7 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
             
             # 創建 pipeline
             self.generator = pipeline(
-                "text-generation",
+                pipeline_task,
                 model=self.model,
                 tokenizer=self.tokenizer,
                 device=0 if self.device.type == "cuda" else -1,

@@ -15,6 +15,7 @@ from apis.translator_service import TranslatorService
 from apis.tts_service import TtsServicer
 from apis.llm_service import LLMServicer
 from apis.speech_recognition_service import SpeechRecognitionServicer
+from apis.rag_service import RAGService
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -52,13 +53,14 @@ class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
 class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     """統一的媒體服務實現"""
     
-    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer):
+    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer, rag_service):
         self.tts_servicer = tts_servicer
         self.wav2lip_servicer = wav2lip_servicer
         self.speaker_annote_servicer = speaker_annote_servicer
         self.llm_servicer = llm_servicer
         self.speech_recognition_servicer = speech_recognition_servicer
-        logger.info("MediaServicer 已初始化（包含 LLM 和語音識別服務）")
+        self.rag_service = rag_service
+        logger.info("MediaServicer 已初始化（包含 RAG, LLM 和語音識別服務）")
     
     def Tts(self, request, context):
         logger.info("收到 TTS 請求")
@@ -107,6 +109,74 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
                 success=False
             )
 
+    def AnswerQuestionFromDocuments(self, request, context):
+        logger.info(f"收到 AnswerQuestionFromDocuments 請求: '{request.query}'")
+        try:
+            if not self.rag_service or not self.llm_servicer:
+                context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+                context.set_details("RAG 或 LLM 服務未啟用")
+                return model_service_pb2.AnswerQuestionResponse(success=False)
+
+            logger.info(f"正在用 RAG 檢索相關文件...")
+            results = self.rag_service.query(request.query)
+
+            if not results:
+                logger.info("找不到相關文件，無法生成答案。")
+                return model_service_pb2.AnswerQuestionResponse(
+                    answer="抱歉，我在知識庫中找不到與您問題相關的資訊。",
+                    sources=[],
+                    success=True
+                )
+
+            sources = [doc.metadata.get('source', 'N/A') for doc in results]
+            logger.info(f"找到 {len(sources)} 個相關文件來源: {sources}")
+
+            rag_context = " ".join([doc.page_content for doc in results])
+            prompt = f"""
+            System: 你是一個樂於助人的助理，會根據提供的上下文來回答問題。你的答案應該要簡潔，並使用與問題相同的語言。請直接回答問題，不要補充無關的資訊。
+
+            Context:
+            {rag_context}
+            
+            Question: {request.query}
+            
+            Answer:
+            """
+            logger.info("正在生成最終答案...")
+
+            generation_config = {
+                "max_new_tokens": 150,
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "do_sample": True,
+                "pad_token_id": self.llm_servicer.llm_model.tokenizer.eos_token_id
+            }
+
+            if self.llm_servicer.llm_model.model_type == "causal":
+                generation_config["return_full_text"] = False
+            
+            outputs = self.llm_servicer.llm_model.generator(
+                prompt,
+                **generation_config
+            )
+            
+            final_answer = outputs[0]["generated_text"].strip()
+            logger.info(f"答案生成成功: {final_answer[:100]}...")
+
+            return model_service_pb2.AnswerQuestionResponse(
+                answer=final_answer,
+                sources=sources,
+                success=True
+            )
+
+        except Exception as e:
+            logger.error(f"AnswerQuestionFromDocuments 處理失敗: {e}")
+            import traceback
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"處理問答時發生內部錯誤: {str(e)}")
+            return model_service_pb2.AnswerQuestionResponse(success=False)
+
 class SpeakerAnnoteServicer:
     """語者辨識服務的包裝器"""
     
@@ -126,26 +196,18 @@ class SpeakerAnnoteServicer:
             return False
             
     def _merge_segments(self, diarization_results, max_silence_for_merge=2.0):
-        """一個不依賴特定套件版本的手動合併函式。"""
         if not diarization_results:
             return []
-
-        # 確保片段按開始時間排序
         diarization_results.sort(key=lambda x: x[1])
-
         merged = []
         current_speaker, current_start, current_end = diarization_results[0]
-
         for i in range(1, len(diarization_results)):
             next_speaker, next_start, next_end = diarization_results[i]
-
-            if (next_speaker == current_speaker and
-                (next_start - current_end) < max_silence_for_merge):
+            if (next_speaker == current_speaker and (next_start - current_end) < max_silence_for_merge):
                 current_end = next_end
             else:
                 merged.append((current_speaker, current_start, current_end))
                 current_speaker, current_start, current_end = next_speaker, next_start, next_end
-
         merged.append((current_speaker, current_start, current_end))
         return merged
 
@@ -175,18 +237,14 @@ class SpeakerAnnoteServicer:
                 logger.info("已將音訊重新採樣至 16000Hz")
             
             self.diarization_model.process(audio_data)
-            
-            # *** THIS IS THE FIX: Directly use the list returned by flush() ***
             raw_segments = self.diarization_model.flush()
-            
             logger.info(f"講者分辨完成，原始片段數量: {len(raw_segments)}")
 
-            # 使用原始列表來進行合併
             merged_results = self._merge_segments(raw_segments)
             logger.info(f"片段合併完成，合併後片段數量: {len(merged_results)}")
 
             all_segments = []
-            speaker_timelines = {}
+            speaker_timelines_dict = {}
             
             for speaker, start_time, end_time in merged_results:
                 segment = model_service_pb2.DiarizationSegment(
@@ -196,12 +254,12 @@ class SpeakerAnnoteServicer:
                 )
                 all_segments.append(segment)
                 
-                if speaker not in speaker_timelines:
-                    speaker_timelines[speaker] = []
-                speaker_timelines[speaker].append(segment)
+                if speaker not in speaker_timelines_dict:
+                    speaker_timelines_dict[speaker] = []
+                speaker_timelines_dict[speaker].append(segment)
             
             timeline_objects = []
-            for speaker, segments in speaker_timelines.items():
+            for speaker, segments in speaker_timelines_dict.items():
                 timeline = model_service_pb2.SpeakerTimeline(
                     speaker=speaker,
                     segments=segments
@@ -210,7 +268,7 @@ class SpeakerAnnoteServicer:
             
             response = model_service_pb2.SpeakerAnnoteResponse(
                 all_segments=all_segments,
-                speaker_timelines=timeline_objects
+                speaker_timelines=timeline_objects  # <-- THE FIX
             )
             
             logger.info("講者分辨結果已準備完成")
@@ -234,6 +292,7 @@ class ServerManager:
         self.speaker_annote_servicer = None
         self.llm_servicer = None
         self.speech_recognition_servicer = None
+        self.rag_service = None
         self.server = None
         
     def initialize_models(self) -> bool:
@@ -266,19 +325,21 @@ class ServerManager:
                 logger.warning(f"❌ 語音識別服務初始化失敗: {e}，但繼續啟動其他服務")
                 self.speech_recognition_servicer = None
             
-            logger.info("正在初始化 LLM 服務...")
+            logger.info("正在初始化 LLM 服務 (使用 Qwen)... ")
             try:
-                # 使用輕量級模型以減少內存使用
-                self.llm_servicer = LLMServicer(model_name="gpt2")  # 使用完整版但選擇較小的模型
+                self.llm_servicer = LLMServicer(model_name="Qwen/Qwen1.5-1.8B-Chat")
                 logger.info("✅ LLM 服務初始化成功")
             except Exception as e:
-                logger.warning(f"❌ LLM 服務初始化失敗: {e}，但繼續啟動其他服務")
-                logger.warning("如果遇到 numpy 兼容性問題，請運行:")
-                logger.warning("pip uninstall numpy pandas scikit-learn transformers torch -y")
-                logger.warning("pip install numpy==1.24.3 pandas==2.0.3 scikit-learn==1.3.0")
-                logger.warning("pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu")
-                logger.warning("pip install transformers==4.30.0")
+                logger.warning(f"❌ LLM 服務初始化失敗: {e}")
                 self.llm_servicer = None
+
+            logger.info("正在初始化 RAG 服務...")
+            try:
+                self.rag_service = RAGService()
+                logger.info("✅ RAG 服務初始化成功")
+            except Exception as e:
+                logger.warning(f"❌ RAG 服務初始化失敗: {e}")
+                self.rag_service = None
             
             return True
             
@@ -302,13 +363,13 @@ class ServerManager:
             self.server
         )
         
-        # 修改 MediaServicer 初始化，加入 LLM 和語音識別服務
         media_servicer = MediaServicer(
             tts_servicer=self.tts_servicer,
             wav2lip_servicer=self.wav2lip_servicer,
             speaker_annote_servicer=self.speaker_annote_servicer,
             llm_servicer=self.llm_servicer,
-            speech_recognition_servicer=self.speech_recognition_servicer
+            speech_recognition_servicer=self.speech_recognition_servicer,
+            rag_service=self.rag_service
         )
         model_service_pb2_grpc.add_MediaServiceServicer_to_server(
             media_servicer, 
@@ -316,7 +377,7 @@ class ServerManager:
         )
         
         self.server.add_insecure_port('0.0.0.0:50051')
-        logger.info("gRPC 伺服器設定完成（包含 LLM 和語音識別服務）")
+        logger.info("gRPC 伺服器設定完成（包含 RAG, LLM 和語音識別服務）")
     
     def start_server(self):
         if not self.initialize_models():
@@ -326,7 +387,6 @@ class ServerManager:
         self.setup_server()
         self.server.start()
         
-        # 顯示可用服務
         services = ["🔤 翻譯服務", "🔊 TTS 服務", "🎬 Wav2Lip 服務"]
         if self.speaker_annote_servicer:
             services.append("👥 語者辨識服務")
@@ -334,7 +394,9 @@ class ServerManager:
             services.append("🎤 語音識別服務")
         if self.llm_servicer:
             services.append("🤖 LLM 服務")
-        
+        if self.rag_service:
+            services.append("📚 RAG 問答服務")
+
         logger.info("🚀 gRPC 伺服器已成功啟動，監聽埠 50051...")
         logger.info(f"📋 可用服務: {', '.join(services)}")
         
@@ -346,6 +408,7 @@ class ServerManager:
             self.server.stop(0)
             logger.info("伺服器已關閉")
         
+
 def serve():
     server_manager = ServerManager()
     server_manager.start_server()
