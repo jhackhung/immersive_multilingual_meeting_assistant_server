@@ -1,10 +1,16 @@
 import grpc
-import whisper
+import torch
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import numpy as np
 import io
 import tempfile
 import logging
+import os
+import librosa
+import soundfile as sf
 from typing import Optional, List, Dict
+import wave
+import struct
 
 from proto import model_service_pb2
 from proto import model_service_pb2_grpc
@@ -13,254 +19,217 @@ logger = logging.getLogger(__name__)
 
 class SpeechRecognitionServicer:
     """
-    語音識別服務實現，使用 OpenAI Whisper 模型進行語音轉文字
+    語音識別服務實現 - 獨立版本，不依賴外部工具
     """
     
-    def __init__(self, model_size: str = "base"):
-        """
-        初始化語音識別服務
+    def __init__(self, model_size: str = "large-v3-turbo"):
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        self.model_id = "openai/whisper-large-v3-turbo"
         
-        Args:
-            model_size (str): Whisper 模型大小，可選 "tiny", "base", "small", "medium", "large"
-        """
         self.model = None
-        self.model_size = model_size
-        self.supported_languages = {
-            "auto": "自動檢測",
-            "en": "英語",
-            "zh": "中文",
-            "ja": "日語",
-            "ko": "韓語",
-            "es": "西班牙語",
-            "fr": "法語",
-            "de": "德語",
-            "ru": "俄語",
-            "pt": "葡萄牙語",
-            "it": "義大利語"
-        }
-        logger.info(f"語音識別服務初始化，使用模型: {model_size}")
+        self.processor = None
+        self.pipe = None
+        
+        logger.info(f"語音識別服務初始化 (獨立版本)")
+        logger.info(f"設備: {self.device}, 精度: {self.torch_dtype}")
     
     def initialize(self) -> bool:
-        """
-        初始化 Whisper 模型
-        
-        Returns:
-            bool: 初始化是否成功
-        """
+        """初始化模型"""
         try:
-            logger.info(f"正在載入 Whisper {self.model_size} 模型...")
-            self.model = whisper.load_model(self.model_size)
-            logger.info("✅ Whisper 模型載入成功")
+            logger.info("載入 Whisper V3 Turbo 模型...")
+            
+            self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                self.model_id, 
+                torch_dtype=self.torch_dtype, 
+                low_cpu_mem_usage=True, 
+                use_safetensors=True
+            )
+            self.model.to(self.device)
+            
+            self.processor = AutoProcessor.from_pretrained(self.model_id)
+            
+            self.pipe = pipeline(
+                "automatic-speech-recognition",
+                model=self.model,
+                tokenizer=self.processor.tokenizer,
+                feature_extractor=self.processor.feature_extractor,
+                torch_dtype=self.torch_dtype,
+                device=self.device,
+            )
+            
+            logger.info("✅ 模型載入成功")
             return True
+            
         except Exception as e:
-            logger.error(f"❌ Whisper 模型載入失敗: {e}")
+            logger.error(f"❌ 模型載入失敗: {e}")
             return False
     
-    def _preprocess_audio(self, audio_data: bytes) -> Optional[np.ndarray]:
-        """
-        預處理音訊數據
-        
-        Args:
-            audio_data (bytes): 原始音訊數據
-            
-        Returns:
-            Optional[np.ndarray]: 預處理後的音訊陣列，失敗時返回 None
-        """
-        try:
-            import soundfile as sf
-            
-            # 將 bytes 轉換為音訊陣列
-            audio_buffer = io.BytesIO(audio_data)
-            audio_array, sample_rate = sf.read(audio_buffer)
-            
-            # 如果是立體聲，轉換為單聲道
-            if len(audio_array.shape) > 1:
-                audio_array = np.mean(audio_array, axis=1)
-            
-            # 轉換為 float32
-            audio_array = audio_array.astype(np.float32)
-            
-            # Whisper 需要 16kHz 採樣率
-            if sample_rate != 16000:
-                import librosa
-                audio_array = librosa.resample(y=audio_array, orig_sr=sample_rate, target_sr=16000)
-                logger.info(f"音訊重新採樣從 {sample_rate}Hz 到 16000Hz")
-            
-            return audio_array
-            
-        except Exception as e:
-            logger.error(f"音訊預處理失敗: {e}")
-            return None
+    def _detect_audio_format(self, audio_data: bytes) -> str:
+        """檢測音頻格式"""
+        # WAV 文件標識
+        if audio_data.startswith(b'RIFF') and b'WAVE' in audio_data[:12]:
+            return 'wav'
+        # MP3 文件標識
+        elif audio_data.startswith(b'ID3') or audio_data[0:2] == b'\xff\xfb':
+            return 'mp3'
+        # MP4/M4A 文件標識
+        elif b'ftyp' in audio_data[:20]:
+            return 'mp4'
+        # OGG 文件標識
+        elif audio_data.startswith(b'OggS'):
+            return 'ogg'
+        else:
+            return 'unknown'
     
-    def _save_temp_audio(self, audio_array: np.ndarray) -> Optional[str]:
+    def _convert_to_wav_bytes(self, audio_data: bytes) -> Optional[bytes]:
         """
-        將音訊陣列保存為臨時文件
-        
-        Args:
-            audio_array (np.ndarray): 音訊陣列
-            
-        Returns:
-            Optional[str]: 臨時文件路径，失敗時返回 None
+        將音頻轉換為 WAV 格式的 bytes
+        使用純 Python + librosa，不依賴 ffmpeg
         """
         try:
-            import soundfile as sf
-            
-            # 創建臨時文件
-            temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-            sf.write(temp_file.name, audio_array, 16000)
-            temp_file.close()
-            
-            return temp_file.name
-            
-        except Exception as e:
-            logger.error(f"保存臨時音訊文件失敗: {e}")
-            return None
-    
-    def _cleanup_temp_file(self, file_path: str):
-        """
-        清理臨時文件
-        
-        Args:
-            file_path (str): 要刪除的文件路径
-        """
-        try:
-            import os
-            if os.path.exists(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            logger.warning(f"清理臨時文件失敗: {e}")
-    
-    def transcribe_audio(self, 
-                        audio_data: bytes, 
-                        language: str = "auto",
-                        return_timestamps: bool = False) -> Dict:
-        """
-        轉錄音訊為文字
-        
-        Args:
-            audio_data (bytes): 音訊數據
-            language (str): 語言代碼，"auto" 表示自動檢測
-            return_timestamps (bool): 是否返回時間戳訊息
-            
-        Returns:
-            Dict: 轉錄結果
-        """
-        if self.model is None:
-            return {
-                "success": False,
-                "error": "模型未初始化"
-            }
-        
-        try:
-            # 預處理音訊
-            audio_array = self._preprocess_audio(audio_data)
-            if audio_array is None:
-                return {
-                    "success": False,
-                    "error": "音訊預處理失敗"
-                }
-            
-            # 保存為臨時文件
-            temp_file_path = self._save_temp_audio(audio_array)
-            if temp_file_path is None:
-                return {
-                    "success": False,
-                    "error": "保存臨時文件失敗"
-                }
+            # 創建臨時輸入文件
+            with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as temp_input:
+                temp_input.write(audio_data)
+                temp_input_path = temp_input.name
             
             try:
-                # 設定轉錄選項
-                options = {
-                    "verbose": False,
-                    "word_timestamps": return_timestamps
-                }
+                # 使用 librosa 載入音頻
+                audio, sr = librosa.load(temp_input_path, sr=16000, mono=True)
                 
-                # 如果不是自動檢測，設定語言
-                if language != "auto" and language in self.supported_languages:
-                    options["language"] = language
+                # 轉換為 int16 格式
+                audio_int16 = (audio * 32767).astype(np.int16)
                 
-                # 執行轉錄
-                logger.info(f"開始轉錄音訊，語言: {language}, 時間戳: {return_timestamps}")
-                result = self.model.transcribe(temp_file_path, **options)
+                # 創建 WAV bytes
+                with io.BytesIO() as wav_buffer:
+                    with wave.open(wav_buffer, 'wb') as wav_file:
+                        wav_file.setnchannels(1)  # 單聲道
+                        wav_file.setsampwidth(2)  # 16-bit
+                        wav_file.setframerate(16000)  # 16kHz
+                        wav_file.writeframes(audio_int16.tobytes())
+                    
+                    wav_bytes = wav_buffer.getvalue()
                 
-                # 準備回應數據
-                response_data = {
-                    "success": True,
-                    "transcribed_text": result.get("text", "").strip(),
-                    "detected_language": result.get("language", "unknown"),
-                    "language_confidence": 0.0,  # Whisper 不直接提供此數據
-                    "segments": []
-                }
-                
-                # 如果需要時間戳，提取片段訊息
-                if return_timestamps and "segments" in result:
-                    for segment in result["segments"]:
-                        response_data["segments"].append({
-                            "text": segment.get("text", "").strip(),
-                            "start_time": segment.get("start", 0.0),
-                            "end_time": segment.get("end", 0.0)
-                        })
-                
-                logger.info(f"轉錄完成，檢測語言: {response_data['detected_language']}")
-                return response_data
+                logger.info(f"音頻轉換成功: {len(audio)} 採樣點 → {len(wav_bytes)} bytes")
+                return wav_bytes
                 
             finally:
                 # 清理臨時文件
-                self._cleanup_temp_file(temp_file_path)
+                if os.path.exists(temp_input_path):
+                    os.unlink(temp_input_path)
                 
         except Exception as e:
-            logger.error(f"語音轉錄失敗: {e}")
-            return {
-                "success": False,
-                "error": f"轉錄失敗: {str(e)}"
-            }
+            logger.error(f"音頻轉換失敗: {e}")
+            return None
     
-    def SpeechRecognition(self, request, context):
+    def _audio_bytes_to_array(self, audio_data: bytes) -> Optional[np.ndarray]:
         """
-        gRPC 語音識別服務端點
-        
-        Args:
-            request: SpeechRecognitionRequest
-            context: gRPC 上下文
-            
-        Returns:
-            SpeechRecognitionResponse
+        將音頻 bytes 轉換為 numpy 陣列
+        完全使用 Python，不依賴外部工具
         """
         try:
-            logger.info(f"收到語音識別請求，音訊大小: {len(request.audio_data)} bytes")
+            # 檢測音頻格式
+            format_type = self._detect_audio_format(audio_data)
+            logger.info(f"檢測到音頻格式: {format_type}")
             
-            # 提取請求參數
-            language = request.language if request.language else "auto"
-            return_timestamps = request.return_timestamps
-            model_size = request.model_size if request.model_size else self.model_size
+            # 如果不是 WAV，先轉換
+            if format_type != 'wav':
+                logger.info("轉換音頻格式為 WAV...")
+                wav_data = self._convert_to_wav_bytes(audio_data)
+                if wav_data is None:
+                    return None
+                audio_data = wav_data
             
-            # 如果請求的模型大小與當前不同，重新載入模型
-            if model_size != self.model_size:
-                logger.info(f"切換模型大小從 {self.model_size} 到 {model_size}")
-                try:
-                    self.model = whisper.load_model(model_size)
-                    self.model_size = model_size
-                    logger.info(f"✅ 模型切換成功")
-                except Exception as e:
-                    logger.warning(f"模型切換失敗，使用原模型: {e}")
+            # 使用 BytesIO 創建文件對象
+            audio_io = io.BytesIO(audio_data)
+            
+            # 用 librosa 從 BytesIO 載入
+            audio, sr = librosa.load(audio_io, sr=16000, mono=True)
+            
+            logger.info(f"音頻載入成功: {len(audio)} 採樣點, {sr} Hz")
+            return audio
+            
+        except Exception as e:
+            logger.error(f"音頻處理失敗: {e}")
+            return None
+    
+    def transcribe_audio(self, 
+                        audio_data: bytes, 
+                        language: str = "zh",
+                        return_timestamps: bool = False) -> Dict:
+        """轉錄音頻"""
+        if self.pipe is None:
+            if not self.initialize():
+                return {"success": False, "error": "模型未初始化"}
+        
+        try:
+            # 轉換音頻為 numpy 陣列
+            audio_array = self._audio_bytes_to_array(audio_data)
+            if audio_array is None:
+                return {"success": False, "error": "音頻處理失敗"}
+            
+            logger.info(f"開始轉錄，語言: {language}")
+            
+            # 設定參數
+            generate_kwargs = {"task": "transcribe"}
+            
+            if language != "auto":
+                generate_kwargs["language"] = language
+            
+            if return_timestamps:
+                generate_kwargs["return_timestamps"] = True
             
             # 執行轉錄
+            result = self.pipe(audio_array, generate_kwargs=generate_kwargs)
+            
+            # 處理結果
+            response_data = {
+                "success": True,
+                "transcribed_text": result.get("text", "").strip(),
+                "detected_language": language,
+                "language_confidence": 1.0,
+                "segments": []
+            }
+            
+            # 處理時間戳
+            if return_timestamps and "chunks" in result:
+                for chunk in result["chunks"]:
+                    if "timestamp" in chunk and chunk["timestamp"]:
+                        start_time = chunk["timestamp"][0] or 0.0
+                        end_time = chunk["timestamp"][1] or 0.0
+                        text = chunk.get("text", "").strip()
+                        
+                        response_data["segments"].append({
+                            "text": text,
+                            "start_time": start_time,
+                            "end_time": end_time
+                        })
+            
+            logger.info("轉錄完成")
+            return response_data
+                
+        except Exception as e:
+            logger.error(f"轉錄失敗: {e}")
+            return {"success": False, "error": f"轉錄失敗: {str(e)}"}
+    
+    def SpeechRecognition(self, request, context):
+        """gRPC 接口"""
+        try:
+            logger.info(f"語音識別請求: {len(request.audio_data)} bytes")
+            
             result = self.transcribe_audio(
                 audio_data=request.audio_data,
-                language=language,
-                return_timestamps=return_timestamps
+                language=request.language or "zh",
+                return_timestamps=request.return_timestamps
             )
             
             if not result["success"]:
                 context.set_code(grpc.StatusCode.INTERNAL)
-                context.set_details(result.get("error", "未知錯誤"))
-                return model_service_pb2.SpeechRecognitionResponse(
-                    success=False
-                )
+                context.set_details(result["error"])
+                return model_service_pb2.SpeechRecognitionResponse(success=False)
             
-            # 構建回應
             segments = []
-            if return_timestamps:
+            if request.return_timestamps:
                 for seg in result["segments"]:
                     segment = model_service_pb2.TranscriptionSegment(
                         text=seg["text"],
@@ -269,7 +238,7 @@ class SpeechRecognitionServicer:
                     )
                     segments.append(segment)
             
-            response = model_service_pb2.SpeechRecognitionResponse(
+            return model_service_pb2.SpeechRecognitionResponse(
                 transcribed_text=result["transcribed_text"],
                 detected_language=result["detected_language"],
                 language_confidence=result["language_confidence"],
@@ -277,17 +246,13 @@ class SpeechRecognitionServicer:
                 success=True
             )
             
-            logger.info("語音識別處理完成")
-            return response
-            
         except Exception as e:
-            logger.error(f"語音識別服務錯誤: {e}")
+            logger.error(f"gRPC 錯誤: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"語音識別失敗: {str(e)}")
-            return model_service_pb2.SpeechRecognitionResponse(
-                success=False
-            )
+            context.set_details(str(e))
+            return model_service_pb2.SpeechRecognitionResponse(success=False)
     
+    # 添加缺少的方法
     def get_supported_languages(self) -> Dict[str, str]:
         """
         獲取支援的語言列表
@@ -295,7 +260,24 @@ class SpeechRecognitionServicer:
         Returns:
             Dict[str, str]: 語言代碼到語言名稱的映射
         """
-        return self.supported_languages.copy()
+        supported_languages = {
+            "auto": "自動檢測",
+            "zh": "中文",
+            "en": "英語", 
+            "ja": "日語",
+            "ko": "韓語",
+            "es": "西班牙語",
+            "fr": "法語",
+            "de": "德語",
+            "ru": "俄語",
+            "pt": "葡萄牙語",
+            "it": "義大利語",
+            "ar": "阿拉伯語",
+            "hi": "印地語",
+            "th": "泰語",
+            "vi": "越南語"
+        }
+        return supported_languages.copy()
     
     def get_model_info(self) -> Dict[str, str]:
         """
@@ -305,7 +287,12 @@ class SpeechRecognitionServicer:
             Dict[str, str]: 模型訊息
         """
         return {
-            "model_size": self.model_size,
-            "model_loaded": self.model is not None,
-            "supported_languages": list(self.supported_languages.keys())
+            "model_id": self.model_id,
+            "model_size": "large-v3-turbo",
+            "device": self.device,
+            "torch_dtype": str(self.torch_dtype),
+            "model_loaded": self.pipe is not None,
+            "supported_languages": list(self.get_supported_languages().keys()),
+            "uses_ffmpeg": False,  # 標示不依賴 ffmpeg
+            "uses_librosa": True   # 標示使用 librosa
         }
