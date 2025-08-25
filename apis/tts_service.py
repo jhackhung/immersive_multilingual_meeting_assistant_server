@@ -53,12 +53,22 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
 
         # --- 載入優化後的 ONNX 聲碼器模型 ---
         print("⏳ 正在載入優化後的 ONNX 聲碼器...")
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device == 'cuda' else ['CPUExecutionProvider']
+        providers = []
+        if self.device == 'cuda':
+            providers.append('CUDAExecutionProvider')
+        # Add DmlExecutionProvider for NPU acceleration on Windows
+        providers.append('DmlExecutionProvider')
+        providers.append('CPUExecutionProvider') # Always keep CPU as a fallback
+        
         try:
             self.onnx_session = ort.InferenceSession(self.onnx_model_path, providers=providers)
             print(f"✅ ONNX 聲碼器載入成功，使用 provider: {self.onnx_session.get_providers()}")
         except Exception as e:
-            raise RuntimeError(f"❌ 載入 ONNX 模型失敗: {e}")
+            # Handle cases where DmlExecutionProvider might not be available
+            print(f"⚠️ 無法載入 DmlExecutionProvider，嘗試使用其他可用的 provider: {e}")
+            # Fallback to CPU if DML fails
+            self.onnx_session = ort.InferenceSession(self.onnx_model_path, providers=['CPUExecutionProvider'])
+            print(f"✅ ONNX 聲碼器載入成功，使用 fallback provider: {self.onnx_session.get_providers()}")
         
         print("✅ TTS 服務初始化完成。")
 
@@ -114,6 +124,14 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             # --- 步驟 3: 使用 ONNX 聲碼器進行分塊推論 ---
             full_mel_spectrogram_np = mel_spectrogram_tensor.cpu().numpy().astype(np.float32)
             speaker_embedding_np = speaker_embedding.cpu().numpy().astype(np.float32)
+
+            # --- 儲存 ONNX 輸入以供客戶端測試 ---
+            test_data_dir = "./tts_sample/onnx_test_data"
+            os.makedirs(test_data_dir, exist_ok=True)
+            np.save(os.path.join(test_data_dir, "mel_spectrogram.npy"), full_mel_spectrogram_np)
+            np.save(os.path.join(test_data_dir, "speaker_embedding.npy"), speaker_embedding_np)
+            print(f"✅ 已儲存 ONNX 測試資料於 {test_data_dir}")
+            # --- 儲存完畢 ---
 
             final_audio_waveform = []
             num_chunks = (full_mel_spectrogram_np.shape[1] + self.fixed_mel_chunk_length - 1) // self.fixed_mel_chunk_length

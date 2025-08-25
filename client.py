@@ -268,7 +268,7 @@ def run_llm_comprehensive_test(stub):
     ]
     
     for prompt in text_prompts:
-        run_llm_text_generation_test(stub, prompt, max_tokens=80, temperature=0.7)
+        run_llm_text_generation_test(stub, prompt, max_tokens=256, temperature=0.7)
     
     # 測試 2: 不同溫度參數
     print("\n🌡️ 測試 2: 不同溫度參數對比")
@@ -277,7 +277,7 @@ def run_llm_comprehensive_test(stub):
     
     for temp in temperatures:
         print(f"\n🔥 溫度 {temp}:")
-        run_llm_text_generation_test(stub, base_prompt, max_tokens=60, temperature=temp)
+        run_llm_text_generation_test(stub, base_prompt, max_tokens=256, temperature=temp)
     
     # 測試 3: 基本對話
     print("\n💬 測試 3: 基本對話")

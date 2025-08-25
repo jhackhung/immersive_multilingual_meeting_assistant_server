@@ -128,7 +128,7 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
                     success=True
                 )
 
-            sources = [doc.metadata.get('source', 'N/A') for doc in results]
+            sources = list(set([doc.metadata.get('source', 'N/A') for doc in results]))
             logger.info(f"找到 {len(sources)} 個相關文件來源: {sources}")
 
             rag_context = " ".join([doc.page_content for doc in results])
@@ -143,6 +143,7 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
             Answer:
             """
             logger.info("正在生成最終答案...")
+            logger.info(f"發送給 LLM 的完整 Prompt:\n{prompt[:1000]}...") # Log first 1000 chars of prompt
 
             generation_config = {
                 "max_new_tokens": 150,
@@ -160,7 +161,10 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
                 **generation_config
             )
             
-            final_answer = outputs[0]["generated_text"].strip()
+            raw_generated_text = outputs[0]["generated_text"]
+            logger.info(f"LLM 原始生成文本:\n{raw_generated_text[:1000]}...") # Log raw output
+            
+            final_answer = raw_generated_text.strip()
             logger.info(f"答案生成成功: {final_answer[:100]}...")
 
             return model_service_pb2.AnswerQuestionResponse(

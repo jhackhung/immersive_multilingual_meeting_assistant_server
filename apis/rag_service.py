@@ -34,9 +34,13 @@ class ONNXEmbeddings:
         try:
             # Load the model and tokenizer from local cache if available
             print(f"Attempting to load ONNX model from local cache: {self.cache_path}")
+            providers = ["DmlExecutionProvider", "CPUExecutionProvider"]
+            if torch.cuda.is_available():
+                providers.insert(0, "CUDAExecutionProvider") # Prioritize CUDA if available
+            
             self.model = ORTModelForFeatureExtraction.from_pretrained(
                 self.cache_path, 
-                provider="CPUExecutionProvider"
+                provider=providers[0] if providers else "CPUExecutionProvider" # Use the first available provider
             )
             self.tokenizer = AutoTokenizer.from_pretrained(self.cache_path)
             print("Successfully loaded ONNX model from cache.")
@@ -44,10 +48,14 @@ class ONNXEmbeddings:
             print(f"Could not load model from cache ({e}). Downloading and converting model...")
             # If not cached, download, convert to ONNX, and save
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            providers = ["DmlExecutionProvider", "CPUExecutionProvider"]
+            if torch.cuda.is_available():
+                providers.insert(0, "CUDAExecutionProvider") # Prioritize CUDA if available
+
             self.model = ORTModelForFeatureExtraction.from_pretrained(
                 self.model_name, 
                 export=True, # This flag handles the conversion to ONNX
-                provider="CPUExecutionProvider"
+                provider=providers[0] if providers else "CPUExecutionProvider" # Use the first available provider
             )
             # Save the converted model and tokenizer for future use
             self.model.save_pretrained(self.cache_path)
@@ -113,8 +121,7 @@ class RAGService:
             
         print(f"Adding {len(chunks)} chunks to the vector store...")
         self.vector_store.add_documents(chunks)
-        self.vector_store.persist()
-        print(f"Successfully added {len(chunks)} chunks. Database persisted.")
+        print(f"Successfully added {len(chunks)} chunks to the vector store.")
 
     def query(self, query_text: str, n_results: int = 4) -> list[Document]:
         """

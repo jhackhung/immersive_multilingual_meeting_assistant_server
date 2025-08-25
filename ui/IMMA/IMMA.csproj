@@ -68,7 +68,17 @@
 		<PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="System.Speech" Version="9.0.8" />
+		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.18.0" />
+		<PackageReference Include="SciSharp.Numpy" Version="1.26.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
 
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- ONNX Models and Test Data for Local TTS -->
+		<MauiAsset Include="models\hifigan_decoder.onnx" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+		<MauiAsset Include="tts_sample\onnx_test_data\mel_spectrogram.npy" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+		<MauiAsset Include="tts_sample\onnx_test_data\speaker_embedding.npy" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
 
 	<ItemGroup>
