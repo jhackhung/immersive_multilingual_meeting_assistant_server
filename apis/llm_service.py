@@ -5,7 +5,7 @@ import os
 
 # 添加模型路徑
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from models.llm_service_model import LLMServicer as LLMModel
+from models.onnx_llm_model import ONNXLLMModel as LLMModel
 from proto import model_service_pb2, model_service_pb2_grpc
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,8 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
             - "facebook/blenderbot-400M-distill" (聊天)
         """
         self.model_name = model_name
+        # 診斷性代碼：確保 grpc 在此處被引用
+        _ = grpc.StatusCode.INTERNAL
         print(f"🤖 初始化 LLM API 服務 - 模型: {model_name}")
         
         try:
@@ -56,6 +58,10 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
         except Exception as e:
             error_msg = f"LLM API 文本生成錯誤: {str(e)}"
             logger.error(error_msg)
+            try:
+                logger.error(f"診斷：sys.modules['grpc'] = {sys.modules['grpc']}")
+            except KeyError:
+                logger.error("診斷：sys.modules 中沒有 'grpc' 模塊")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(error_msg)
             return model_service_pb2.TextGenerationResponse(
@@ -87,9 +93,8 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
         except Exception as e:
             error_msg = f"LLM API 對話完成錯誤: {str(e)}"
             logger.error(error_msg)
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(error_msg)
             return model_service_pb2.ChatCompletionResponse(
                 response="",
-                success=False
+                success=False,
+                error_message=error_msg
             )

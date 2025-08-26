@@ -1,5 +1,11 @@
 print("!!! SERVER.PY HAS BEEN MODIFIED SUCCESSFULLY !!!")
 
+import sys
+import os
+
+# Add the project root to sys.path for module discovery
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from concurrent import futures
 import grpc
 import time
@@ -131,40 +137,33 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
             sources = list(set([doc.metadata.get('source', 'N/A') for doc in results]))
             logger.info(f"找到 {len(sources)} 個相關文件來源: {sources}")
 
-            rag_context = " ".join([doc.page_content for doc in results])
-            prompt = f"""
-            System: 你是一個樂於助人的助理，會根據提供的上下文來回答問題。你的答案應該要簡潔，並使用與問題相同的語言。請直接回答問題，不要補充無關的資訊。
+            rag_context = "\n".join([doc.page_content for doc in results])
+            
+            system_prompt = "你是一個樂於助人的助理，會根據提供的上下文來回答問題。你的答案應該要簡潔，並使用與問題相同的語言。請直接回答問題，不要補充無關的資訊。"
+            user_prompt = f"Context:\n{rag_context}\n\nQuestion: {request.query}"
 
-            Context:
-            {rag_context}
+            messages = [
+                model_service_pb2.ChatMessage(role="system", content=system_prompt),
+                model_service_pb2.ChatMessage(role="user", content=user_prompt)
+            ]
             
-            Question: {request.query}
-            
-            Answer:
-            """
             logger.info("正在生成最終答案...")
-            logger.info(f"發送給 LLM 的完整 Prompt:\n{prompt[:1000]}...") # Log first 1000 chars of prompt
-
-            generation_config = {
-                "max_new_tokens": 150,
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "do_sample": True,
-                "pad_token_id": self.llm_servicer.llm_model.tokenizer.eos_token_id
-            }
-
-            if self.llm_servicer.llm_model.model_type == "causal":
-                generation_config["return_full_text"] = False
             
-            outputs = self.llm_servicer.llm_model.generator(
-                prompt,
-                **generation_config
+            llm_request = model_service_pb2.ChatCompletionRequest(
+                messages=messages,
+                max_tokens=150,
+                temperature=0.7
             )
             
-            raw_generated_text = outputs[0]["generated_text"]
-            logger.info(f"LLM 原始生成文本:\n{raw_generated_text[:1000]}...") # Log raw output
+            llm_response = self.llm_servicer.ChatCompletion(llm_request, context)
             
-            final_answer = raw_generated_text.strip()
+            if llm_response.success:
+                final_answer = llm_response.response.strip()
+            else:
+                # If there's an error message in the response, use it.
+                error_detail = llm_response.error_message if hasattr(llm_response, 'error_message') and llm_response.error_message else "LLM generation failed without a specific error message."
+                raise Exception(error_detail)
+
             logger.info(f"答案生成成功: {final_answer[:100]}...")
 
             return model_service_pb2.AnswerQuestionResponse(
@@ -174,7 +173,7 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
             )
 
         except Exception as e:
-            logger.error(f"AnswerQuestionFromDocuments 處理失敗: {e}")
+            logger.info(f"AnswerQuestionFromDocuments 處理失敗: {e}")
             import traceback
             logger.error(f"詳細錯誤: {traceback.format_exc()}")
             context.set_code(grpc.StatusCode.INTERNAL)

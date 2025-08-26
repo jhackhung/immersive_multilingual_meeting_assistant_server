@@ -13,3 +13,6 @@ output_*.mp4
 
 # Log files
 *.log
+
+# Large model files (downloaded dynamically)
+models/onnx_llm_model/Qwen_Qwen1.5-1.8B-Chat/

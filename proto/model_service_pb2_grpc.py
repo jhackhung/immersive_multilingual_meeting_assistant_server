@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from proto import model_service_pb2 as proto_dot_model__service__pb2
+from . import model_service_pb2 as model__service__pb2
 
 GRPC_GENERATED_VERSION = '1.74.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in proto/model_service_pb2_grpc.py depends on'
+        + f' but the generated code in model_service_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,8 +37,8 @@ class TranslatorServiceStub(object):
         """
         self.Translate = channel.unary_unary(
                 '/model.v1.TranslatorService/Translate',
-                request_serializer=proto_dot_model__service__pb2.TranslateRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.TranslateResponse.FromString,
+                request_serializer=model__service__pb2.TranslateRequest.SerializeToString,
+                response_deserializer=model__service__pb2.TranslateResponse.FromString,
                 _registered_method=True)
 
 
@@ -59,8 +59,8 @@ def add_TranslatorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Translate': grpc.unary_unary_rpc_method_handler(
                     servicer.Translate,
-                    request_deserializer=proto_dot_model__service__pb2.TranslateRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.TranslateResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.TranslateRequest.FromString,
+                    response_serializer=model__service__pb2.TranslateResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -89,8 +89,8 @@ class TranslatorService(object):
             request,
             target,
             '/model.v1.TranslatorService/Translate',
-            proto_dot_model__service__pb2.TranslateRequest.SerializeToString,
-            proto_dot_model__service__pb2.TranslateResponse.FromString,
+            model__service__pb2.TranslateRequest.SerializeToString,
+            model__service__pb2.TranslateResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -113,38 +113,38 @@ class MediaServiceStub(object):
         """
         self.Wav2Lip = channel.unary_unary(
                 '/model.v1.MediaService/Wav2Lip',
-                request_serializer=proto_dot_model__service__pb2.Wav2LipRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.Wav2LipResponse.FromString,
+                request_serializer=model__service__pb2.Wav2LipRequest.SerializeToString,
+                response_deserializer=model__service__pb2.Wav2LipResponse.FromString,
                 _registered_method=True)
         self.Tts = channel.unary_unary(
                 '/model.v1.MediaService/Tts',
-                request_serializer=proto_dot_model__service__pb2.TtsRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.TtsResponse.FromString,
+                request_serializer=model__service__pb2.TtsRequest.SerializeToString,
+                response_deserializer=model__service__pb2.TtsResponse.FromString,
                 _registered_method=True)
         self.SpeakerAnnote = channel.unary_unary(
                 '/model.v1.MediaService/SpeakerAnnote',
-                request_serializer=proto_dot_model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.SpeakerAnnoteResponse.FromString,
+                request_serializer=model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
+                response_deserializer=model__service__pb2.SpeakerAnnoteResponse.FromString,
                 _registered_method=True)
         self.SpeechRecognition = channel.unary_unary(
                 '/model.v1.MediaService/SpeechRecognition',
-                request_serializer=proto_dot_model__service__pb2.SpeechRecognitionRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.SpeechRecognitionResponse.FromString,
+                request_serializer=model__service__pb2.SpeechRecognitionRequest.SerializeToString,
+                response_deserializer=model__service__pb2.SpeechRecognitionResponse.FromString,
                 _registered_method=True)
         self.GenerateText = channel.unary_unary(
                 '/model.v1.MediaService/GenerateText',
-                request_serializer=proto_dot_model__service__pb2.TextGenerationRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.TextGenerationResponse.FromString,
+                request_serializer=model__service__pb2.TextGenerationRequest.SerializeToString,
+                response_deserializer=model__service__pb2.TextGenerationResponse.FromString,
                 _registered_method=True)
         self.ChatCompletion = channel.unary_unary(
                 '/model.v1.MediaService/ChatCompletion',
-                request_serializer=proto_dot_model__service__pb2.ChatCompletionRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.ChatCompletionResponse.FromString,
+                request_serializer=model__service__pb2.ChatCompletionRequest.SerializeToString,
+                response_deserializer=model__service__pb2.ChatCompletionResponse.FromString,
                 _registered_method=True)
         self.AnswerQuestionFromDocuments = channel.unary_unary(
                 '/model.v1.MediaService/AnswerQuestionFromDocuments',
-                request_serializer=proto_dot_model__service__pb2.AnswerQuestionRequest.SerializeToString,
-                response_deserializer=proto_dot_model__service__pb2.AnswerQuestionResponse.FromString,
+                request_serializer=model__service__pb2.AnswerQuestionRequest.SerializeToString,
+                response_deserializer=model__service__pb2.AnswerQuestionResponse.FromString,
                 _registered_method=True)
 
 
@@ -204,38 +204,38 @@ def add_MediaServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Wav2Lip': grpc.unary_unary_rpc_method_handler(
                     servicer.Wav2Lip,
-                    request_deserializer=proto_dot_model__service__pb2.Wav2LipRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.Wav2LipResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.Wav2LipRequest.FromString,
+                    response_serializer=model__service__pb2.Wav2LipResponse.SerializeToString,
             ),
             'Tts': grpc.unary_unary_rpc_method_handler(
                     servicer.Tts,
-                    request_deserializer=proto_dot_model__service__pb2.TtsRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.TtsResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.TtsRequest.FromString,
+                    response_serializer=model__service__pb2.TtsResponse.SerializeToString,
             ),
             'SpeakerAnnote': grpc.unary_unary_rpc_method_handler(
                     servicer.SpeakerAnnote,
-                    request_deserializer=proto_dot_model__service__pb2.SpeakerAnnoteRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.SpeakerAnnoteResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.SpeakerAnnoteRequest.FromString,
+                    response_serializer=model__service__pb2.SpeakerAnnoteResponse.SerializeToString,
             ),
             'SpeechRecognition': grpc.unary_unary_rpc_method_handler(
                     servicer.SpeechRecognition,
-                    request_deserializer=proto_dot_model__service__pb2.SpeechRecognitionRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.SpeechRecognitionResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.SpeechRecognitionRequest.FromString,
+                    response_serializer=model__service__pb2.SpeechRecognitionResponse.SerializeToString,
             ),
             'GenerateText': grpc.unary_unary_rpc_method_handler(
                     servicer.GenerateText,
-                    request_deserializer=proto_dot_model__service__pb2.TextGenerationRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.TextGenerationResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.TextGenerationRequest.FromString,
+                    response_serializer=model__service__pb2.TextGenerationResponse.SerializeToString,
             ),
             'ChatCompletion': grpc.unary_unary_rpc_method_handler(
                     servicer.ChatCompletion,
-                    request_deserializer=proto_dot_model__service__pb2.ChatCompletionRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.ChatCompletionResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.ChatCompletionRequest.FromString,
+                    response_serializer=model__service__pb2.ChatCompletionResponse.SerializeToString,
             ),
             'AnswerQuestionFromDocuments': grpc.unary_unary_rpc_method_handler(
                     servicer.AnswerQuestionFromDocuments,
-                    request_deserializer=proto_dot_model__service__pb2.AnswerQuestionRequest.FromString,
-                    response_serializer=proto_dot_model__service__pb2.AnswerQuestionResponse.SerializeToString,
+                    request_deserializer=model__service__pb2.AnswerQuestionRequest.FromString,
+                    response_serializer=model__service__pb2.AnswerQuestionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -263,8 +263,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/Wav2Lip',
-            proto_dot_model__service__pb2.Wav2LipRequest.SerializeToString,
-            proto_dot_model__service__pb2.Wav2LipResponse.FromString,
+            model__service__pb2.Wav2LipRequest.SerializeToString,
+            model__service__pb2.Wav2LipResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -290,8 +290,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/Tts',
-            proto_dot_model__service__pb2.TtsRequest.SerializeToString,
-            proto_dot_model__service__pb2.TtsResponse.FromString,
+            model__service__pb2.TtsRequest.SerializeToString,
+            model__service__pb2.TtsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -317,8 +317,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/SpeakerAnnote',
-            proto_dot_model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
-            proto_dot_model__service__pb2.SpeakerAnnoteResponse.FromString,
+            model__service__pb2.SpeakerAnnoteRequest.SerializeToString,
+            model__service__pb2.SpeakerAnnoteResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -344,8 +344,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/SpeechRecognition',
-            proto_dot_model__service__pb2.SpeechRecognitionRequest.SerializeToString,
-            proto_dot_model__service__pb2.SpeechRecognitionResponse.FromString,
+            model__service__pb2.SpeechRecognitionRequest.SerializeToString,
+            model__service__pb2.SpeechRecognitionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -371,8 +371,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/GenerateText',
-            proto_dot_model__service__pb2.TextGenerationRequest.SerializeToString,
-            proto_dot_model__service__pb2.TextGenerationResponse.FromString,
+            model__service__pb2.TextGenerationRequest.SerializeToString,
+            model__service__pb2.TextGenerationResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -398,8 +398,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/ChatCompletion',
-            proto_dot_model__service__pb2.ChatCompletionRequest.SerializeToString,
-            proto_dot_model__service__pb2.ChatCompletionResponse.FromString,
+            model__service__pb2.ChatCompletionRequest.SerializeToString,
+            model__service__pb2.ChatCompletionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -425,8 +425,8 @@ class MediaService(object):
             request,
             target,
             '/model.v1.MediaService/AnswerQuestionFromDocuments',
-            proto_dot_model__service__pb2.AnswerQuestionRequest.SerializeToString,
-            proto_dot_model__service__pb2.AnswerQuestionResponse.FromString,
+            model__service__pb2.AnswerQuestionRequest.SerializeToString,
+            model__service__pb2.AnswerQuestionResponse.FromString,
             options,
             channel_credentials,
             insecure,

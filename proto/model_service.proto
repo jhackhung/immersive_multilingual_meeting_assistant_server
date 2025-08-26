@@ -153,6 +153,7 @@ message TextGenerationRequest {
 message TextGenerationResponse {
     string generated_text = 1;
     bool success = 2;
+    string error_message = 3; // Added
 }
 
 // 聊天訊息
@@ -172,6 +173,7 @@ message ChatCompletionRequest {
 message ChatCompletionResponse {
     string response = 1;
     bool success = 2;
+    string error_message = 3; // Added
 }
 
 // --- 新增的 RAG 問答訊息 ---
@@ -186,4 +188,5 @@ message AnswerQuestionResponse {
     string answer = 1;       // 模型生成的回應
     repeated string sources = 2; // 答案參考的文件來源
     bool success = 3;        // 是否成功
+    string error_message = 4; // Added
 }

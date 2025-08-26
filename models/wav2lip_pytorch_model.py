@@ -179,13 +179,9 @@ except ImportError:
     print("⚠️ 人臉檢測模組導入失敗，將使用備用方案")
     face_detection = None
 
-try:
-    # 嘗試導入 Wav2Lip 音訊模組（如果存在的話）
-    import audio
-    print("✅ 音訊處理模組導入成功")
-except ImportError:
-    print("⚠️ 音訊處理模組導入失敗，將使用 librosa")
-    audio = None
+# 直接使用 librosa 進行音訊處理，不再嘗試導入自定義的 'audio' 模組
+import librosa
+print("✅ 音訊處理將使用 librosa")
 
 print("✅ Wav2Lip 模組載入成功 (自包含版本)")
 
@@ -412,29 +408,19 @@ class Wav2LipPytorch:
             
         print("🎵 處理音訊...")
         
-        # 處理音訊 - 優先使用 Wav2Lip 音訊處理，失敗則使用 librosa
+        # 處理音訊 - 直接使用 librosa
         try:
-            if audio is not None:
-                wav = audio.load_wav(audio_path, 16000)
-                mel = audio.melspectrogram(wav)  # 只傳遞一個參數
-                
-                if np.isnan(mel.reshape(-1)).sum() > 0:
-                    raise ValueError('音訊檔案中包含 NaN 值')
-                    
-                print(f"✅ 使用 Wav2Lip 音訊處理成功，mel 形狀: {mel.shape}")
-            else:
-                raise ImportError("Wav2Lip 音訊模組不可用")
-                
-        except Exception as e:
-            print(f"❌ 使用 Wav2Lip 音訊處理失敗: {e}")
-            print("嘗試使用 librosa 作為備用方案...")
-            
-            # 備用音訊處理方案
-            import librosa
             wav, sr = librosa.load(audio_path, sr=16000)
             mel = librosa.feature.melspectrogram(y=wav, sr=16000, n_mels=80, fmax=8000)
             mel = np.log(mel + 1e-6)
             print(f"✅ 使用 librosa 音訊處理成功，mel 形狀: {mel.shape}")
+            
+            if np.isnan(mel.reshape(-1)).sum() > 0:
+                raise ValueError('音訊檔案中包含 NaN 值')
+                
+        except Exception as e:
+            print(f"❌ 音訊處理失敗: {e}")
+            raise # Re-raise the exception if librosa also fails
             
         mel_chunks = []
         mel_idx_multiplier = 80./25. 
