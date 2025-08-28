@@ -5,136 +5,372 @@ import os
 import time
 import onnxruntime as ort
 import io
-import tempfile
+import hashlib
+import torchaudio
+import logging
+from functools import lru_cache
 from scipy.io.wavfile import write as write_wav
+from typing import Tuple, Optional
 
 from proto import model_service_pb2
 from proto import model_service_pb2_grpc
-
 from TTS.api import TTS
+
+# 設置結構化日誌
+logger = logging.getLogger(__name__)
 
 class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
     """
-    實現 .proto 中定義的 TtsService。
-    這個類別將模型載入和推論邏輯封裝在一起。
+    實現 .proto 中定義的 TtsService - NPU 友好優化版本
     """
     
     def __init__(self, 
                  onnx_model_path="./models/hifigan_decoder.onnx", 
                  default_speaker_wav="./tts_sample/segment.wav"):
         """
-        初始化 TtsServicer，載入所有必要的模型和設定。
-        這個方法只會在伺服器啟動、建立此類別實例時執行一次。
-        
-        Args:
-            onnx_model_path (str): ONNX 聲碼器模型的路徑。
-            default_speaker_wav (str): 預設參考音訊的路徑。
+        初始化 TtsServicer - 修正版本
         """
-
-        print("🚀 正在初始化 TTS 服務...")
+        logger.info("🚀 正在初始化 NPU 友好 TTS 服務...")
         self.onnx_model_path = onnx_model_path
         self.default_speaker_wav_path = default_speaker_wav
         self.sample_rate = 22050
         self.fixed_mel_chunk_length = 100
-
+        
+        # 輸入驗證
         if not os.path.exists(self.default_speaker_wav_path):
             raise FileNotFoundError(f"❌ 找不到預設參考音訊檔案: {self.default_speaker_wav_path}")
         if not os.path.exists(self.onnx_model_path):
             raise FileNotFoundError(f"❌ 找不到優化後的 ONNX 模型: {self.onnx_model_path}")
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print(f"✅ TTS 服務使用裝置: {self.device}")    
+        logger.info(f"✅ TTS 服務使用裝置: {self.device}")
 
         # --- 載入 XTTS-v2 模型 ---
-        print("⏳ 正在載入 XTTS-v2 模型...")
+        logger.info("⏳ 正在載入 XTTS-v2 模型...")
         tts_instance = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device)
         self.tts_model = tts_instance.synthesizer.tts_model
-        print("✅ XTTS-v2 模型載入成功。")
+        
+        # 獲取真實的 hop_length（修正點 3）
+        self.hop_length = getattr(self.tts_model, "hop_length", 256)
+        logger.info(f"✅ XTTS-v2 模型載入成功，hop_length: {self.hop_length}")
 
-        # --- 載入優化後的 ONNX 聲碼器模型 ---
-        print("⏳ 正在載入優化後的 ONNX 聲碼器...")
-        providers = []
-        if self.device == 'cuda':
-            providers.append('CUDAExecutionProvider')
-        # Add DmlExecutionProvider for NPU acceleration on Windows
-        providers.append('DmlExecutionProvider')
-        providers.append('CPUExecutionProvider') # Always keep CPU as a fallback
+        # --- 載入優化後的 ONNX 聲碼器模型 (NPU 友好) ---
+        logger.info("⏳ 正在載入優化後的 ONNX 聲碼器...")
+        self.onnx_session, self.active_providers = self._build_ort_session(self.onnx_model_path)
+        logger.info(f"✅ ONNX 聲碼器載入成功，使用 EP: {self.active_providers}")
+
+        # --- 快取系統初始化（修正點 1）---
+        self._blob_cache = {}  # 分離儲存音訊 bytes
+        
+        # --- 設定 overlap 為 hop 的整數倍（修正點 4）---
+        self.overlap_samples = 4 * self.hop_length
+        logger.info(f"🎵 Overlap samples: {self.overlap_samples}")
+        
+        # --- 預載預設參考音訊到記憶體 ---
+        self._load_default_audio_to_memory()
+        
+        # --- Warm-up ---
+        self._warmup()
+        
+        logger.info("✅ NPU 友好 TTS 服務初始化完成。")
+
+    def _build_ort_session(self, model_path: str) -> Tuple[ort.InferenceSession, list]:
+        """建立 ONNX Runtime Session - 支援多 EP 回退"""
+        # SessionOptions 優化
+        so = ort.SessionOptions()
+        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        so.enable_mem_pattern = True
+        so.enable_cpu_mem_arena = True
+        so.intra_op_num_threads = max(1, os.cpu_count() // 2)
+        
+        # EP 優先序（依部署目標調整）
+        ep_candidates = [
+            "QNNExecutionProvider",         # Snapdragon NPU
+            "OpenVINOExecutionProvider",    # Intel
+            "DirectMLExecutionProvider",    # Windows NPU / GPU
+            "CUDAExecutionProvider",        # NVIDIA GPU
+            "CPUExecutionProvider",         # CPU fallback
+        ]
+        
+        available_providers = ort.get_available_providers()
+        providers = [ep for ep in ep_candidates if ep in available_providers]
+        
+        if not providers:
+            providers = ["CPUExecutionProvider"]
+        
+        logger.debug(f"🔍 可用的 EP: {available_providers}")
+        logger.info(f"🎯 選用的 EP 順序: {providers}")
         
         try:
-            self.onnx_session = ort.InferenceSession(self.onnx_model_path, providers=providers)
-            print(f"✅ ONNX 聲碼器載入成功，使用 provider: {self.onnx_session.get_providers()}")
+            sess = ort.InferenceSession(model_path, sess_options=so, providers=providers)
+            actual_providers = sess.get_providers()
+            return sess, actual_providers
         except Exception as e:
-            # Handle cases where DmlExecutionProvider might not be available
-            print(f"⚠️ 無法載入 DmlExecutionProvider，嘗試使用其他可用的 provider: {e}")
-            # Fallback to CPU if DML fails
-            self.onnx_session = ort.InferenceSession(self.onnx_model_path, providers=['CPUExecutionProvider'])
-            print(f"✅ ONNX 聲碼器載入成功，使用 fallback provider: {self.onnx_session.get_providers()}")
+            logger.warning(f"⚠️ 使用優先 EP 失敗，回退到 CPU: {e}")
+            sess = ort.InferenceSession(model_path, sess_options=so, providers=["CPUExecutionProvider"])
+            return sess, ["CPUExecutionProvider"]
+
+    def _load_default_audio_to_memory(self):
+        """預載預設參考音訊到記憶體"""
+        with open(self.default_speaker_wav_path, "rb") as f:
+            self._default_wav_bytes = f.read()
+        self._default_hash = self._hash_bytes(self._default_wav_bytes)
         
-        print("✅ TTS 服務初始化完成。")
+        # 存入 blob_cache（修正點 1）
+        self._blob_cache[self._default_hash] = self._default_wav_bytes
+        
+        logger.info(f"📁 預設參考音訊已載入記憶體，hash: {self._default_hash[:8]}...")
+
+    def _warmup(self):
+        """Warm-up 推論引擎"""
+        logger.info("🔥 正在進行 Warm-up...")
+        try:
+            # 修正 speaker embedding 維度 - 檢測實際維度
+            dummy_mel = np.zeros((1, self.fixed_mel_chunk_length, 1024), dtype=np.float32)
+            
+            # 先獲取實際的 speaker embedding 維度
+            temp_gpt_cond_latent, temp_speaker_embedding = self._get_cached_conditioning(self._default_hash)
+            actual_spk_dim = temp_speaker_embedding.shape[-1]
+            
+            dummy_spk = np.zeros((1, 512, actual_spk_dim), dtype=np.float32)
+            
+            _ = self.onnx_session.run(None, {
+                "mel_spectrogram": dummy_mel,
+                "speaker_embedding": dummy_spk,
+            })
+            logger.info("✅ Warm-up 完成")
+        except Exception as e:
+            logger.warning(f"⚠️ Warm-up 失敗，但不影響服務: {e}")
+
+    @staticmethod
+    def _hash_bytes(b: bytes) -> str:
+        """計算 bytes 的 SHA256 hash"""
+        return hashlib.sha256(b).hexdigest()
+
+    @lru_cache(maxsize=256)
+    def _get_cached_conditioning(self, hash_key: str) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        快取的條件潛變數與說話者嵌入獲取（修正版本）
+        修正點 1 & 2: 只用 hash_key 當 key，回傳 CPU tensor
+        """
+        try:
+            # 從 blob_cache 獲取音訊資料
+            wav_bytes = self._blob_cache[hash_key]
+            
+            # In-memory 解析音訊
+            buf = io.BytesIO(wav_bytes)
+            wav, sr = torchaudio.load(buf, format="wav")
+            
+            # 重採樣到目標採樣率
+            if sr != self.sample_rate:
+                wav = torchaudio.functional.resample(wav, sr, self.sample_rate)
+            
+            # 轉為單聲道
+            if wav.shape[0] > 1:
+                wav = wav.mean(dim=0, keepdim=True)
+            
+            # 暫存到記憶體檔案
+            tmp_buf = io.BytesIO()
+            torchaudio.save(tmp_buf, wav, self.sample_rate, format="wav")
+            tmp_buf.seek(0)
+            
+            # 使用暫存檔案路徑
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                tmp_file.write(tmp_buf.getvalue())
+                tmp_path = tmp_file.name
+            
+            try:
+                gpt_cond_latent, speaker_embedding = self.tts_model.get_conditioning_latents(audio_path=tmp_path)
+                # 修正點 2: 回傳 CPU tensor 以節省 GPU 記憶體
+                return gpt_cond_latent.cpu(), speaker_embedding.cpu()
+            finally:
+                os.unlink(tmp_path)
+                
+        except Exception as e:
+            logger.warning(f"⚠️ 解析參考音訊失敗: {e}")
+            # 修正點 2: 避免無限遞迴
+            if hash_key != self._default_hash:
+                return self._get_cached_conditioning(self._default_hash)
+            else:
+                # 預設也失敗就拋出異常
+                raise RuntimeError(f"無法處理預設參考音訊: {e}")
+
+    def _overlap_add_chunks(self, chunks: list) -> np.ndarray:
+        """使用 Hann 窗進行 overlap-add，消除接縫噪音 - 最終穩健版本"""
+        if not chunks:
+            return np.array([], dtype=np.float32)
+        
+        if len(chunks) == 1:
+            return chunks[0].astype(np.float32)
+        
+        if self.overlap_samples <= 0:
+            return np.concatenate(chunks, axis=0)
+
+        out = chunks[0].astype(np.float32)
+        fade = np.hanning(self.overlap_samples * 2).astype(np.float32)
+        fade_in, fade_out = fade[:self.overlap_samples], fade[self.overlap_samples:]
+
+        for i in range(1, len(chunks)):
+            current_chunk = chunks[i].astype(np.float32)
+            
+            # 確保有足夠長度進行 overlap
+            if len(out) < self.overlap_samples or len(current_chunk) < self.overlap_samples:
+                 # 如果其中一個塊太短，直接拼接
+                out = np.concatenate([out, current_chunk])
+                continue
+
+            # 交疊區域淡入淡出
+            out_tail = out[-self.overlap_samples:] * fade_out
+            chunk_head = current_chunk[:self.overlap_samples] * fade_in
+            mixed = out_tail + chunk_head
+            
+            # 拼接
+            out = np.concatenate([
+                out[:-self.overlap_samples], 
+                mixed, 
+                current_chunk[self.overlap_samples:]
+            ])
+        
+        return out
+    
+    def _trim_trailing_silence(self, audio: np.ndarray, threshold_db: float = -45.0, chunk_size: int = 1024) -> np.ndarray:
+        """
+        從音訊尾部修剪靜音部分。
+
+        Args:
+            audio (np.ndarray): 輸入的音訊波形 (float32)。
+            threshold_db (float): 靜音的音量閾值 (dB)。低於此值被視為靜音。
+            chunk_size (int): 用於分析的塊大小。
+
+        Returns:
+            np.ndarray: 修剪掉尾部靜音後的音訊波形。
+        """
+        if audio.size == 0:
+            return audio
+
+        # 將 dB 轉換為線性振幅閾值
+        threshold = 10 ** (threshold_db / 20)
+
+        # 從後向前迭代，尋找第一個非靜音的塊
+        for i in range(len(audio), 0, -chunk_size):
+            start = max(0, i - chunk_size)
+            chunk = audio[start:i]
+            # 檢查塊的最大振幅是否超過閾值
+            if np.max(np.abs(chunk)) > threshold:
+                # 找到了第一個非靜音塊，我們可以在這裡停止
+                # 為了更精確，我們可以在這個塊內找到最後一個超過閾值的樣本
+                non_silent_indices = np.where(np.abs(audio[:i]) > threshold)[0]
+                if len(non_silent_indices) > 0:
+                    last_sample_index = non_silent_indices[-1]
+                    # 增加一點緩衝 (例如 100ms)，避免切得太突然
+                    padding = int(self.sample_rate * 0.1) 
+                    return audio[:last_sample_index + padding]
+                else:
+                    # 理論上不應該發生，但作為保護
+                    return audio[:i]
+        
+        # 如果整個音訊都是靜音，則回傳空陣列
+        return np.array([], dtype=np.float32)
+
+    def _validate_request(self, request) -> Tuple[bool, str]:
+        """驗證請求參數"""
+        # 文字長度限制
+        if not request.text_to_speak or len(request.text_to_speak.strip()) == 0:
+            return False, "文字內容不能為空"
+        
+        if len(request.text_to_speak) > 1000:  # 1000 字元限制
+            return False, "文字長度超過限制 (1000 字元)"
+        
+        # 語言檢查
+        supported_languages = ["en", "zh-cn", "zh", "ja", "ko", "fr", "de", "es", "it", "pt", "ru"]
+        language = request.language or "en"
+        if language not in supported_languages:
+            return False, f"不支援的語言: {language}，支援語言: {supported_languages}"
+        
+        # 參考音訊大小限制 (10MB)
+        if request.reference_audio and len(request.reference_audio) > 10 * 1024 * 1024:
+            return False, "參考音訊檔案過大 (限制 10MB)"
+        
+        return True, ""
 
     def Tts(self, request, context):
         """
-        處理 TTS 請求並回傳生成的音訊。
-        'request' 是一個 tts_pb2.TtsRequest 物件。
-        必須回傳一個 tts_pb2.TtsResponse 物件。
+        處理 TTS 請求 - NPU 友好優化版本（修正版）
         """
         start_time = time.time()
-        speaker_wav_path = self.default_speaker_wav_path
-        temp_file_path = None
-
+        
         try:
-            # --- 處理參考音訊 ---
+            # --- 輸入驗證 ---
+            is_valid, error_msg = self._validate_request(request)
+            if not is_valid:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details(error_msg)
+                return model_service_pb2.TtsResponse()
+            
+            # --- 快取的條件潜變數獲取（修正版）---
             if request.reference_audio:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-                    tmp_file.write(request.reference_audio)
-                    temp_file_path = tmp_file.name
-                    speaker_wav_path = temp_file_path
-                print("🎤 使用了客戶端提供的參考音訊。")
+                hash_key = self._hash_bytes(request.reference_audio)
+                # 存入 blob_cache
+                self._blob_cache[hash_key] = request.reference_audio
+                logger.debug("🎤 使用了客戶端提供的參考音訊（已快取）")
             else:
-                print(f"🎤 使用預設的參考音訊: {self.default_speaker_wav_path}")
+                hash_key = self._default_hash
+                logger.debug(f"🎤 使用預設參考音訊（已快取）")
+            
+            # 獲取快取的 conditioning（CPU tensor）
+            gpt_cond_latent, speaker_embedding = self._get_cached_conditioning(hash_key)
+            
+            # 移動到設備（修正點 1: 使用時才移動到 GPU）
+            gpt_cond_latent = gpt_cond_latent.to(self.device, non_blocking=True)
+            speaker_embedding = speaker_embedding.to(self.device, non_blocking=True)
                 
             # --- 生成梅爾頻譜 ---
-            text_to_speak = request.text_to_speak
+            text_to_speak = request.text_to_speak.strip()
             language = request.language or "en"
-            print(f"📝 準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
+            logger.info(f"📝 準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
             
-            # 使用 self.tts_model 和 self.device
-            gpt_cond_latent, speaker_embedding = self.tts_model.get_conditioning_latents(audio_path=speaker_wav_path)
-            gpt_cond_latent = gpt_cond_latent.to(self.device)
-            speaker_embedding = speaker_embedding.to(self.device)
-
-            text_tokens = torch.IntTensor(self.tts_model.tokenizer.encode(text_to_speak, lang=language)).unsqueeze(0).to(self.device)
-
+            # 文字編碼與生成
+            text_tokens = torch.IntTensor(
+                self.tts_model.tokenizer.encode(text_to_speak, lang=language)
+            ).unsqueeze(0).to(self.device)
 
             with torch.no_grad():
                 gpt_codes = self.tts_model.gpt.generate(
-                    cond_latents=gpt_cond_latent, text_inputs=text_tokens,
-                    output_attentions=False, temperature=0.75, top_p=0.9,
-                    repetition_penalty=5.0, length_penalty=1.5
+                    cond_latents=gpt_cond_latent, 
+                    text_inputs=text_tokens,
+                    output_attentions=False, 
+                    repetition_penalty=5.0, 
+                    # temperature=0.75, 
+                    # top_p=0.9,
+                    # length_penalty=1.5
                 )
-                expected_output_len = torch.tensor([gpt_codes.shape[-1] * self.tts_model.gpt.code_stride_len], device=self.device)
+                
+                expected_output_len = torch.tensor([
+                    gpt_codes.shape[-1] * self.tts_model.gpt.code_stride_len
+                ], device=self.device)
                 text_len = torch.tensor([text_tokens.shape[-1]], device=self.device)
+                
                 gpt_latents = self.tts_model.gpt(
                     text_tokens, text_len, gpt_codes, expected_output_len,
-                    cond_latents=gpt_cond_latent, return_attentions=False, return_latent=True
+                    cond_latents=gpt_cond_latent, 
+                    return_attentions=False, 
+                    return_latent=True
                 )
             
             mel_spectrogram_tensor = gpt_latents.detach()
 
-            # --- 步驟 3: 使用 ONNX 聲碼器進行分塊推論 ---
+            # --- NPU 友好的分塊推論（修正版：使用真實 hop_length）---
             full_mel_spectrogram_np = mel_spectrogram_tensor.cpu().numpy().astype(np.float32)
             speaker_embedding_np = speaker_embedding.cpu().numpy().astype(np.float32)
 
-            # --- 儲存 ONNX 輸入以供客戶端測試 ---
-            test_data_dir = "./tts_sample/onnx_test_data"
-            os.makedirs(test_data_dir, exist_ok=True)
-            np.save(os.path.join(test_data_dir, "mel_spectrogram.npy"), full_mel_spectrogram_np)
-            np.save(os.path.join(test_data_dir, "speaker_embedding.npy"), speaker_embedding_np)
-            print(f"✅ 已儲存 ONNX 測試資料於 {test_data_dir}")
-            # --- 儲存完畢 ---
+            total_mel_length = full_mel_spectrogram_np.shape[1]
+            logger.info(f"📊 總梅爾頻譜長度: {total_mel_length}")
 
-            final_audio_waveform = []
+            audio_chunks = []
             num_chunks = (full_mel_spectrogram_np.shape[1] + self.fixed_mel_chunk_length - 1) // self.fixed_mel_chunk_length
+            
+            logger.debug(f"🔄 準備處理 {num_chunks} 個音訊塊...")
             
             for i in range(num_chunks):
                 start_idx = i * self.fixed_mel_chunk_length
@@ -142,42 +378,73 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 mel_chunk = full_mel_spectrogram_np[:, start_idx:end_idx, :]
                 current_chunk_length = mel_chunk.shape[1]
 
+                # 填充到固定長度
                 if current_chunk_length < self.fixed_mel_chunk_length:
                     padding_needed = self.fixed_mel_chunk_length - current_chunk_length
-                    mel_chunk_padded = np.pad(mel_chunk, ((0, 0), (0, padding_needed), (0, 0)), mode='constant', constant_values=0)
+                    mel_chunk_padded = np.pad(
+                        mel_chunk, 
+                        ((0, 0), (0, padding_needed), (0, 0)), 
+                        mode='constant', 
+                        constant_values=0
+                    )
                 else:
                     mel_chunk_padded = mel_chunk
 
-                onnx_inputs = {"mel_spectrogram": mel_chunk_padded, "speaker_embedding": speaker_embedding_np}
-                # 使用 self.onnx_session
-                chunk_output = self.onnx_session.run(None, onnx_inputs)[0]
-                final_audio_waveform.append(chunk_output.squeeze())
+                # NPU/ONNX 推論
+                onnx_inputs = {
+                    "mel_spectrogram": mel_chunk_padded, 
+                    "speaker_embedding": speaker_embedding_np
+                }
+                
+                try:
+                    chunk_output = self.onnx_session.run(None, onnx_inputs)[0]
+                    # actual_audio_length = current_chunk_length * self.hop_length
+                    # chunk_audio = chunk_output.squeeze()[:actual_audio_length]
+                    audio_chunks.append(chunk_output)
+                    
+                    # 增加日誌以追蹤每個塊的進度
+                    logger.info(f"✅ 第 {i+1}/{num_chunks} 塊推論成功。梅爾長度: {current_chunk_length}, 音訊長度: {len(chunk_output)}")
+                except Exception as e:
+                    logger.warning(f"⚠️ 第 {i+1} 塊推論失敗: {e}")
+                    continue
 
-            # --- 拼接音訊並轉換為 bytes ---
-            if not final_audio_waveform:
+            # --- Overlap-Add 拼接（消除接縫） ---
+            if not audio_chunks:
                 context.set_code(grpc.StatusCode.INTERNAL)
                 context.set_details("音訊生成失敗，沒有任何音訊塊產生。")
                 return model_service_pb2.TtsResponse()
 
-            final_audio_waveform = np.concatenate(final_audio_waveform)
+            logger.debug("🎵 使用 overlap-add 拼接音訊塊...")
+            final_audio_waveform = self._overlap_add_chunks(audio_chunks)
             
+            ### --- 修改 --- ###
+            # 修剪尾部靜音
+            original_length = len(final_audio_waveform)
+            final_audio_waveform = self._trim_trailing_silence(final_audio_waveform)
+            trimmed_length = len(final_audio_waveform)
+            if original_length > trimmed_length:
+                original_duration = original_length / self.sample_rate
+                trimmed_duration = trimmed_length / self.sample_rate
+                logger.info(f"✂️ 已修剪尾部靜音。音訊長度從 {original_duration:.2f}s 減少到 {trimmed_duration:.2f}s。")
+            ### --- 修改結束 --- ###
+            
+            # --- 轉換為 WAV bytes ---
             buffer = io.BytesIO()
             write_wav(buffer, self.sample_rate, final_audio_waveform.astype(np.float32))
             wav_bytes = buffer.getvalue()
             
             end_time = time.time()
-            print(f"✅ 請求處理完成，總耗時: {end_time - start_time:.2f} 秒。")
+            logger.info(f"✅ 請求處理完成，總耗時: {end_time - start_time:.2f} 秒")
+            logger.info(f"📊 使用的 EP: {self.active_providers[0] if self.active_providers else 'Unknown'}")
+            logger.info(f"✅ 最終音訊預估時長: {len(wav_bytes) / (self.sample_rate * 4):.2f} 秒")
+            # TODO: 修正點 6 - 加入 metrics 追蹤
+            # metrics.tts_request_latency_ms.observe((end_time - start_time) * 1000)
+            # metrics.onnx_ep_in_use.labels(self.active_providers[0]).inc()
             
             return model_service_pb2.TtsResponse(generated_audio=wav_bytes)
 
         except Exception as e:
-            print(f"❌ 處理請求時發生錯誤: {e}")
+            logger.error(f"❌ 處理請求時發生錯誤: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"內部伺服器錯誤: {str(e)}")
             return model_service_pb2.TtsResponse()
-        
-        finally:
-            # --- 清理暫存檔案 ---
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-                print(f"🗑️ 已刪除暫存檔案: {temp_file_path}")
