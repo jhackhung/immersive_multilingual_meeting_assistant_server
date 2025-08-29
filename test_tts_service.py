@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # 根據您 TtsServicer 中的 supported_languages 列表
 TEST_CASES = {
     "en": "Hello, this is a test of the text-to-speech API in English. I hope you have a wonderful day!",
-    # "zh-cn": "你好，这是一个测试文本转语音功能的中文API。希望你今天过得愉快！",
+    "zh-cn": "你好，这是一个测试文本转语音功能的中文API。希望你今天过得愉快!",
     # "ja": "こんにちは、これは日本語のテキスト読み上げAPIのテストです。素晴らしい一日をお過ごしください。",
     # "ko": "안녕하세요, 이것은 한국어 텍스트 음성 변환 API 테스트입니다. 좋은 하루 보내세요!",
     # "fr": "Bonjour, ceci est un test de l'API de synthèse vocale en français. J'espère que vous passez une excellente journée!",
@@ -130,14 +130,14 @@ def main():
             time.sleep(1)
 
     # --- 場景 2: 使用伺服器預設聲音進行多語言測試 ---
-    logging.info("\n" + "="*60)
-    logging.info("🚀 開始場景 2: 使用伺服器預設聲音進行多語言合成")
-    logging.info("="*60)
-    for lang, text in TEST_CASES.items():
-        output_filename = f"default_speaker_{lang}.wav"
-        output_path = os.path.join(args.output_dir, output_filename)
-        run_tts_request(stub, "預設聲音合成", lang, text, output_path, None)
-        time.sleep(1)
+    # logging.info("\n" + "="*60)
+    # logging.info("🚀 開始場景 2: 使用伺服器預設聲音進行多語言合成")
+    # logging.info("="*60)
+    # for lang, text in TEST_CASES.items():
+    #     output_filename = f"default_speaker_{lang}.wav"
+    #     output_path = os.path.join(args.output_dir, output_filename)
+    #     run_tts_request(stub, "預設聲音合成", lang, text, output_path, None)
+    #     time.sleep(1)
 
     # --- 場景 3: 邊界與錯誤條件測試 ---
     logging.info("\n" + "="*60)
