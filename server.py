@@ -1,5 +1,6 @@
 print("!!! SERVER.PY HAS BEEN MODIFIED SUCCESSFULLY !!!")
 
+import asyncio
 import sys
 import os
 
@@ -22,6 +23,7 @@ from apis.tts_service import TtsServicer
 from apis.llm_service import LLMServicer
 from apis.speech_recognition_service import SpeechRecognitionServicer
 from apis.rag_service import RAGService
+from apis.stt_service import STTService
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -59,13 +61,14 @@ class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
 class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     """統一的媒體服務實現"""
     
-    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer, rag_service):
+    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer, rag_service, stt_service):
         self.tts_servicer = tts_servicer
         self.wav2lip_servicer = wav2lip_servicer
         self.speaker_annote_servicer = speaker_annote_servicer
         self.llm_servicer = llm_servicer
         self.speech_recognition_servicer = speech_recognition_servicer
         self.rag_service = rag_service
+        self.stt_service = stt_service
         logger.info("MediaServicer 已初始化（包含 RAG, LLM 和語音識別服務）")
     
     def Tts(self, request, context):
@@ -90,6 +93,63 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
             return model_service_pb2.SpeechRecognitionResponse(
                 success=False
             )
+    
+    def StreamingRecognize(self, request_iterator, context):
+        """
+        處理雙向串流語音辨識請求。
+        將非同步的 stt_service 轉換為同步迭代。
+        """
+        logger.info("收到 StreamingRecognize 請求 (同步處理模式)")
+        try:
+            if self.stt_service is None:
+                error_msg = "STT 服務未初始化或初始化失敗"
+                logger.error(error_msg)
+                # 直接回傳單個響應，因為無法使用 yield
+                return [model_service_pb2.StreamingRecognizeResponse(
+                    session_id="error",
+                    is_final=True,
+                    message=error_msg,
+                    rtf=0.0,
+                    chunk_sec=0.0,
+                    server_time_sec=0.0
+                )]
+
+            # 創建一個非同步可迭代的請求對象，以便傳遞給非同步服務
+            async_request_iterator = self.async_generator_from_sync_iterator(request_iterator)
+
+            # 獲取一個新的非同步事件循環來運行非同步生成器
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # 異步地啟動 STT 服務的非同步生成器
+            async_gen = self.stt_service.StreamingRecognize(async_request_iterator, context)
+            
+            # 使用同步迴圈從非同步生成器中取出每一個結果
+            while True:
+                try:
+                    # 運行非同步代碼直到下一個結果出現
+                    response = loop.run_until_complete(async_gen.__anext__())
+                    yield response
+                except StopAsyncIteration:
+                    # 非同步生成器結束
+                    break
+        except Exception as e:
+            logger.error(f"同步 StreamingRecognize 處理失敗: {e}")
+            yield model_service_pb2.StreamingRecognizeResponse(
+                session_id="error",
+                is_final=True,
+                message=f"STT 服務處理失敗: {str(e)}",
+                rtf=0.0,
+                chunk_sec=0.0,
+                server_time_sec=0.0
+            )
+        finally:
+            loop.close()
+
+    # 新增一個輔助方法，用於將同步迭代器轉換為非同步生成器
+    async def async_generator_from_sync_iterator(self, sync_iterator):
+        for item in sync_iterator:
+            yield item
     
     def GenerateText(self, request, context):
         logger.info("收到 GenerateText 請求")
@@ -296,6 +356,7 @@ class ServerManager:
         self.llm_servicer = None
         self.speech_recognition_servicer = None
         self.rag_service = None
+        self.stt_service = None
         self.server = None
         
     def initialize_models(self) -> bool:
@@ -328,6 +389,19 @@ class ServerManager:
                 logger.warning(f"❌ 語音識別服務初始化失敗: {e}，但繼續啟動其他服務")
                 self.speech_recognition_servicer = None
             
+            logger.info("正在初始化 STT 串流語音識別服務...")
+            try:
+                use_qualcomm = False
+                self.stt_service = STTService(use_qualcomm_model=use_qualcomm)
+                if self.stt_service.initialize():  # ✅ 正確：調用實例方法
+                    logger.info("✅ STT 服務初始化成功")
+                else:
+                    logger.error("❌ STT 服務初始化失敗")
+                    self.stt_service = None
+            except Exception as e:
+                logger.warning(f"❌ STT 服務初始化失敗: {e}，但繼續啟動其他服務")
+                self.stt_service = None
+
             logger.info("正在初始化 LLM 服務 (使用 Qwen)... ")
             try:
                 self.llm_servicer = LLMServicer(model_name="Qwen/Qwen1.5-1.8B-Chat")
@@ -372,7 +446,8 @@ class ServerManager:
             speaker_annote_servicer=self.speaker_annote_servicer,
             llm_servicer=self.llm_servicer,
             speech_recognition_servicer=self.speech_recognition_servicer,
-            rag_service=self.rag_service
+            rag_service=self.rag_service,
+            stt_service=self.stt_service
         )
         model_service_pb2_grpc.add_MediaServiceServicer_to_server(
             media_servicer, 
@@ -395,6 +470,8 @@ class ServerManager:
             services.append("👥 語者辨識服務")
         if self.speech_recognition_servicer:
             services.append("🎤 語音識別服務")
+        if self.stt_service:
+            services.append("🎙️ STT 串流語音識別服務")
         if self.llm_servicer:
             services.append("🤖 LLM 服務")
         if self.rag_service:

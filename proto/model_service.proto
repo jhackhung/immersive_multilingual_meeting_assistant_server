@@ -31,6 +31,9 @@ service MediaService {
 
   // 新增的 RAG 問答 RPC
   rpc AnswerQuestionFromDocuments(AnswerQuestionRequest) returns (AnswerQuestionResponse);
+
+  // STT service
+  rpc StreamingRecognize (stream StreamingRecognizeRequest) returns (stream StreamingRecognizeResponse);
 }
 
 // 定義請求的資料結構
@@ -189,4 +192,70 @@ message AnswerQuestionResponse {
     repeated string sources = 2; // 答案參考的文件來源
     bool success = 3;        // 是否成功
     string error_message = 4; // Added
+}
+
+// 音訊資料塊
+message AudioChunk {
+  bytes audio_bytes = 1;
+}
+
+// 詞級資訊
+message WordInfo {
+  // 詞彙本身。
+  string word = 1;
+  // 詞彙的開始時間（秒）。
+  float start_time_sec = 2;
+  // 詞彙的結束時間（秒）。
+  float end_time_sec = 3;
+  // 辨識的置信度。
+  float confidence = 4;
+}
+
+// 句子或片段資訊
+message Segment {
+  // 辨識出的文字。
+  string text = 1;
+  // 片段的開始時間（秒）。
+  float start_time_sec = 2;
+  // 片段的結束時間（秒）。
+  float end_time_sec = 3;
+  // 詞級資訊。
+  repeated WordInfo words = 4;
+  // 說話人 ID，如果未知則為 "unknown"。
+  string speaker_id = 5;
+}
+
+// 客戶端發送的請求訊息
+message StreamingRecognizeRequest {
+  AudioChunk audio = 1;
+
+  string language = 2;
+
+  // 標記音訊串流的結束。
+  bool is_last = 3;
+}
+
+// 伺服器回傳的回應訊息
+message StreamingRecognizeResponse {
+  string session_id = 1;
+  
+  string transcript_text = 2;
+  
+  // 標記結果（final）。
+  bool is_final = 3;
+  
+  // 結構化的片段與詞級資訊。
+  repeated Segment segments = 4;
+  
+  // 錯誤或提示訊息。
+  string message = 5;
+  
+  // 實時因子（Real-time factor），處理時間 / 音訊時長。
+  double rtf = 6;
+  
+  // 伺服器已處理的音訊總時長（秒）。
+  double chunk_sec = 7;
+
+  // 伺服器端處理此次請求的時間（秒）。
+  double server_time_sec = 8;
 }
