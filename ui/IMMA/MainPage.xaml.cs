@@ -135,7 +135,7 @@ namespace IMMA
                             {
                                 var entry = new TranscriptEntry()
                                 {
-                                    SpeakerName = task.IsSystemAudio ? "未辨識" : "您",
+                                    SpeakerName = task.IsSystemAudio ? "Unidentified" : "You",
                                     SpeakerRole = "",
                                     Content = seg.Text,
                                     Timestamp = task.StartTime.AddSeconds(seg.StartTime),
@@ -156,7 +156,7 @@ namespace IMMA
             tapGestureRecognizer.Tapped += (s, e) =>
             {
                 Clipboard.Default.SetTextAsync(SummaryMarkdown.MarkdownText);
-                DisplayAlert("提示", "已將摘要複製到剪貼簿", "確定");
+                DisplayAlert("Info", "Summary copied to clipboard", "OK");
             };
             SummaryMarkdown.GestureRecognizers.Add(tapGestureRecognizer);
         }
@@ -245,19 +245,19 @@ namespace IMMA
         private async Task OnSpeakerLabelTapped(TranscriptEntry tappedEntry)
         {
             // Don't allow renaming the user's entries
-            if (tappedEntry.SpeakerName == "您")
+            if (tappedEntry.SpeakerName == "You")
             {
-                await DisplayAlert("提示", "無法修改您自己的名稱", "確定");
+                await DisplayAlert("Info", "Cannot modify your own name", "OK");
                 return;
             }
 
             // Show dialog to input new name
             string result = await DisplayPromptAsync(
-                "重命名說話者",
-                $"請輸入新名稱（目前: {tappedEntry.SpeakerName}）",
-                "確定",
-                "取消",
-                placeholder: "新名稱",
+                "Rename Speaker",
+                $"Please enter new name (Current: {tappedEntry.SpeakerName})",
+                "OK",
+                "Cancel",
+                placeholder: "New name",
                 initialValue: tappedEntry.SpeakerName);
 
             // If user entered a new name
@@ -295,7 +295,7 @@ namespace IMMA
                 // Launch the photo picker
                 var result = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
                 {
-                    Title = "選擇頭像圖片"
+                    Title = "Select Avatar Image"
                 });
 
                 // If the user selected an image
@@ -318,7 +318,7 @@ namespace IMMA
             catch (Exception ex)
             {
                 // Handle any exceptions
-                await DisplayAlert("錯誤", $"選擇圖片時發生錯誤: {ex.Message}", "確定");
+                await DisplayAlert("Error", $"Error selecting image: {ex.Message}", "OK");
             }
         }
 
@@ -401,7 +401,7 @@ namespace IMMA
                         foreach (var entry in matchingEntries)
                         {
                             // Skip entries that are from the microphone (user's speech)
-                            if (entry.SpeakerName == "您")
+                            if (entry.SpeakerName == "You")
                                 continue;
 
                             // Update the speaker information
@@ -425,22 +425,22 @@ namespace IMMA
                         AddTranscriptEntryToUI(entry);
                     }
 
-                    await DisplayAlert("成功", "說話人識別完成並已更新會議記錄", "確定");
+                    await DisplayAlert("Success", "Speaker identification completed and meeting records updated", "OK");
                 }
                 else
                 {
-                    await DisplayAlert("提示", "未檢測到足夠的說話人資訊", "確定");
+                    await DisplayAlert("Info", "Not enough speaker information detected", "OK");
                 }
 
 
             }
             catch (RpcException ex)
             {
-                await DisplayAlert("錯誤", $"說話人識別服務出錯: {ex.Status.Detail}", "確定");
+                await DisplayAlert("Error", $"Speaker identification service error: {ex.Status.Detail}", "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("錯誤", $"說話人識別時發生錯誤: {ex.Message}", "確定");
+                await DisplayAlert("Error", $"Error during speaker identification: {ex.Message}", "OK");
             }
             EnableButton(SpeakerRecognitionButton);
         }
@@ -529,18 +529,18 @@ namespace IMMA
                 var transcript = string.Join("\n", Transcripts.Select(t => $"{t.FormattedTimestamp} {t.SpeakerName}:\n {t.Content}"));
                 var example = new MeetingSummary()
                 {
-                    Title = "範例會議記錄摘要",
+                    Title = "Sample Meeting Summary",
                     Points =
                     [
                         new BulletPoint
                         {
-                            Title = "主要議題",
-                            Contents = ["新產品功能規劃與時程", "市場競爭分析", "預算分配"]
+                            Title = "Main Topics",
+                            Contents = ["New product feature planning and timeline", "Market competition analysis", "Budget allocation"]
                         },
                         new BulletPoint
                         {
-                            Title = "決議事項",
-                            Contents = ["下週一前完成功能規格書", "增加研發預算 15%", "三週後進行第一次功能展示"]
+                            Title = "Decisions Made",
+                            Contents = ["Complete feature specification by next Monday", "Increase R&D budget by 15%", "First feature demo in 3 weeks"]
                         }
                     ]
                 };
@@ -551,10 +551,10 @@ namespace IMMA
                 };
                 var exData = JsonSerializer.Serialize(example, options);
                 var chat = chatModel.StartChat();
-                var result = await chat.GenerateContentAsync("用Markdown格式生成會議記錄摘要及重點整理並:\n" + transcript);
+                var result = await chat.GenerateContentAsync("Generate meeting summary and key points in Markdown format:\n" + transcript);
                 if (result is null)
                 {
-                    await DisplayAlert("錯誤", "無法生成會議摘要", "確定");
+                    await DisplayAlert("Error", "Unable to generate meeting summary", "OK");
                     return;
                 }
 
@@ -566,7 +566,7 @@ namespace IMMA
             }
             catch (Exception ex)
             {
-                await DisplayAlert("錯誤", "無法生成會議摘要:" + ex.Message, "確定");
+                await DisplayAlert("Error", "Unable to generate meeting summary:" + ex.Message, "OK");
             }
             EnableButton(GenerateSummaryButton);
         }
@@ -681,7 +681,7 @@ namespace IMMA
             }
             catch (Exception ex)
             {
-                await DisplayAlert("錯誤", $"匯出會議記錄時發生錯誤: {ex.Message}", "確定");
+                await DisplayAlert("Error", $"Error exporting meeting records: {ex.Message}", "OK");
             }
         }
 
@@ -692,7 +692,7 @@ namespace IMMA
                 // Open file picker to select a JSON file
                 var options = new PickOptions
                 {
-                    PickerTitle = "選擇會議記錄檔案",
+                    PickerTitle = "Select Meeting Records File",
                     FileTypes = new FilePickerFileType(
                         new Dictionary<DevicePlatform, IEnumerable<string>>
                         {
@@ -720,7 +720,7 @@ namespace IMMA
 
                 if (meetingRecord == null)
                 {
-                    await DisplayAlert("錯誤", "無法載入會議記錄，格式可能不正確", "確定");
+                    await DisplayAlert("Error", "Unable to load meeting records, format may be incorrect", "OK");
                     return;
                 }
 
@@ -746,14 +746,14 @@ namespace IMMA
                     SummaryMarkdown.MarkdownText = meetingRecord.Summary;
                 }
 
-                await DisplayAlert("成功", $"已匯入會議記錄: {meetingRecord.Title}", "確定");
+                await DisplayAlert("Success", $"Meeting records imported: {meetingRecord.Title}", "OK");
 
                 // Switch to transcript tab
                 OnTranscriptTabClicked(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
-                await DisplayAlert("錯誤", $"匯入會議記錄時發生錯誤: {ex.Message}", "確定");
+                await DisplayAlert("Error", $"Error importing meeting records: {ex.Message}", "OK");
             }
         }
 
@@ -793,11 +793,11 @@ namespace IMMA
                 SourceTextEditor.Text = string.Join("\n", result.TranscribedText);
 
                 EnableButton(MicButton);
-                MicButton.Text = "🎤 開始錄音";
+                MicButton.Text = "🎤 Start Recording";
             }
             else
             {
-                MicButton.Text = "🎤 停止錄音";
+                MicButton.Text = "🎤 Stop Recording";
                 transalteRecordingWriter = new WaveFileWriter("translate.wav", Microphone.Format);
                 translateRecording = true;
             }
@@ -807,12 +807,12 @@ namespace IMMA
         {
             return lang switch
             {
-                "中文" => "zh",
-                "英文" or "English" => "en",
-                "日文" => "ja",
-                "韓文" => "ko",
-                "法文" => "fr",
-                "德文" => "de",
+                "Chinese" or "中文" => "zh",
+                "English" or "英文" => "en",
+                "Japanese" or "日文" => "ja",
+                "Korean" or "韓文" => "ko",
+                "French" or "法文" => "fr",
+                "German" or "德文" => "de",
                 _ => "auto"
             };
         }
@@ -822,7 +822,7 @@ namespace IMMA
             DisableButton(TranslateButton);
             if (SourceLangPicker.SelectedItem == null || TargetLangPicker.SelectedItem == null)
             {
-                await DisplayAlert("錯誤", "請選擇源語言和目標語言", "確定");
+                await DisplayAlert("Error", "Please select source and target languages", "OK");
                 EnableButton(TranslateButton);
                 return;
             }
@@ -842,7 +842,7 @@ namespace IMMA
             }
             else
             {
-                await DisplayAlert("錯誤", "翻譯失敗，請稍後再試", "確定");
+                await DisplayAlert("Error", "Translation failed, please try again later", "OK");
             }
             EnableButton(TranslateButton);
         }
