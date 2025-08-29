@@ -2,7 +2,29 @@
 
 # Python
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Local database
 chroma_db/
@@ -10,12 +32,67 @@ chroma_db/
 # Generated output files
 output_*.wav
 output_*.mp4
+tts_test_output/
+llm_test_output/
+qa_test_output/
+test_output/
+local_test_output/
+
+# Audio/Video files
+*.wav
+*.mp3
+*.mp4
+*.avi
+*.mov
+
+# Documents
+documents/
+*.pptx
+*.docx
+*.pdf
 
 # Log files
 *.log
+logs/
 
 # Large model files (downloaded dynamically)
-models/onnx_llm_model/Qwen_Qwen1.5-1.8B-Chat/
+models/onnx_llm_model/
+models/onnx_embedding_model/
+models/whisper_model/
+models/*.onnx
+models/*.pt
+models/*.bin
+models/*.safetensors
+models/*.h5
+models/*.pkl
+
+# Environment files 
+condaenv.*.requirements.txt
+environment.yml
+*.yml
+
+# Large test/sample files
+identify_sample/*.mp4
+identify_sample/*.wav
+tts_sample/*.wav
+wav2lip_sample/*.wav
+
+# Cache directories
+cache/
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
 /ui/IMMA/Properties/launchSettings.json
 output_en.wav
 output_zh-cn.wav

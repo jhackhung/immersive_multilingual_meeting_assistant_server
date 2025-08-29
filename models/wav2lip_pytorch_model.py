@@ -178,16 +178,16 @@ Wav2LipModel = Wav2Lip
 # 導入其他模組
 try:
     import face_detection
-    print("✅ 人臉檢測模組導入成功")
+    print("人臉檢測模組導入成功")
 except ImportError:
-    print("⚠️ 人臉檢測模組導入失敗，將使用備用方案")
+    print("人臉檢測模組導入失敗，將使用備用方案")
     face_detection = None
 
 # 直接使用 librosa 進行音訊處理，不再嘗試導入自定義的 'audio' 模組
 import librosa
 print("✅ 音訊處理將使用 librosa")
 
-print("✅ Wav2Lip 模組載入成功 (自包含版本)")
+print("Wav2Lip 模組載入成功 (自包含版本)")
 
 class Wav2LipPytorch:
     """使用 PyTorch 版本的 Wav2Lip 模型"""
@@ -205,7 +205,7 @@ class Wav2LipPytorch:
         self.face_det_batch_size = 16
         self.wav2lip_batch_size = 128
         
-        print(f"🚀 初始化 Wav2Lip PyTorch 模型，設備: {self.device}")
+        print(f"初始化 Wav2Lip PyTorch 模型，設備: {self.device}")
         
     def load_model(self):
         """載入 Wav2Lip 模型"""
