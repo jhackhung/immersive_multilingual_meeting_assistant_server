@@ -17,3 +17,6 @@ output_*.mp4
 # Large model files (downloaded dynamically)
 models/onnx_llm_model/Qwen_Qwen1.5-1.8B-Chat/
 /ui/IMMA/Properties/launchSettings.json
+output_en.wav
+output_zh-cn.wav
+output_wav2lip.mp4
