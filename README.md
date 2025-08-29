@@ -1,18 +1,38 @@
 ﻿# Immersive Multilingual Meeting Assistant Server
 
-一個基於 gRPC 的多語言會議助手後端服務，提供即時翻譯、語音合成 (TTS)、說話者分離及虛擬頭像生成等功能。
+A gRPC-based multilingual meeting assistant backend service providing real-time translation, text-to-speech (TTS), speech-to-text (STT), speaker diarization, and virtual avatar generation. Optimized for Snapdragon-powered devices with QNN (Qualcomm Neural Network) acceleration support.
 
-##  功能特色
+## Application Description
 
-- **多語言翻譯**: 使用 mBART-50 模型，支援 50+ 種語言互譯
-- **語音合成 (TTS)**: 基於 XTTS-v2 的多語言語音合成，支援聲音複製
-- **語音識別 (STT)**: 使用 OpenAI Whisper 模型進行高準確度語音轉文字，支援 11+ 種語言。
-- **說話者分離**: 使用 pyannote.audio 進行說話者日誌分析
-- **高性能 gRPC 服務**: 支援併發請求處理
-- **虛擬頭像服務**: 根據圖片與聲音樣本建立虛擬頭像，並將其即時串流至虛擬攝影機與麥克風，支援視訊會議與直播。
-- **GPU/NPU 加速**: 自動偵測並使用 CUDA、DirectML 或 QNN (如果可用) 來加速模型運算。
+This project is a comprehensive multilingual meeting assistant solution providing the following core functionalities:
 
-##  專案架構
+###  Core Features
+
+- **Real-time Multilingual Translation**: Using mBART-50 model, supporting 50+ language pairs
+- **High-Quality Speech Synthesis**: XTTS-v2 based multilingual TTS with voice cloning capabilities
+- **Accurate Speech Recognition**: OpenAI Whisper model supporting 11+ languages
+- **Intelligent Speaker Diarization**: pyannote.audio-based speaker identification and analysis
+- **Virtual Avatar System**: Image-driven virtual avatar generation with real-time streaming
+- **Hardware Acceleration**: Optimized for Snapdragon platforms with QNN, DirectML support
+
+### Use Case
+- International conference real-time translation
+- Multilingual video conferencing
+- Online education and training
+- Cross-language streaming and content creation
+- Business communication and negotiation
+
+## Team Members
+| Name | Email |
+|------|-------|
+| 洪永結 | j112403537@g.ncu.edu.tw |
+| 游晉毅 | 112403522@cc.ncu.edu.tw |
+| 楊宗賀 | 112403516@cc.ncu.edu.tw |
+| 陳紀睿 | 113403054@cc.ncu.edu.tw |
+| 李宥寬 | metasausage@g.ncu.edu.tw |
+
+
+<!-- ##  Project Structure
 
 ```
 immersive_multilingual_meeting_assistant_server/
@@ -32,31 +52,64 @@ immersive_multilingual_meeting_assistant_server/
     ├── model_service_pb2.py
     ├── model_service_pb2_grpc.py
     └── model_service_pb2.pyi
-```
+``` -->
 
-##  快速開始
+##  Installation Guide
 
-### 環境需求
+### System Requirements
 
-- Python 3.10+
+#### Minimum Requirements
+- **Operating System**: Windows 10/11
+- **Processor**: Intel i5-8th gen+ or AMD Ryzen 5 3600+ or Snapdragon 8cx+
+- **Memory**: 16GB RAM (32GB recommended)
+- **Storage**: 50GB available space
+- **Python**: 3.10 or newer
+- **Network**: Stable internet connection (for model downloads)
 
-- Conda 或 Miniconda
+#### Recommended Configuration (Snapdragon Platform)
+- **Processor**: Snapdragon 8cx Gen 3 or newer
+- **Memory**: 32GB RAM
+- **Storage**: NVMe SSD 100GB+
+- **QNN SDK**: Qualcomm AI Engine Direct SDK 2.10+
 
-- CUDA 11.8+ (可選，用於 NVIDIA GPU 加速)
+### Step 1: Environment Setup
 
-- 16GB+ RAM (建議)
-
-### 1. 環境設置
+#### 1.1 Install Conda
 
 ```bash
-# 使用 Conda 建立環境
-conda env create -f environment.yml
-conda activate server
+# Download and install Miniconda
+# https://docs.conda.io/en/latest/miniconda.html
 ```
 
-### 2. 環境變數配置
+#### 1.2 Git Installation and Project Cloning
 
-建立 `.env` 檔案：
+```bash
+# Install Git (if not already installed)
+# Windows: https://git-scm.com/download/win
+
+# Clone the project
+git clone https://github.com/jhackhung/immersive_multilingual_meeting_assistant_server.git
+cd immersive_multilingual_meeting_assistant_server
+```
+
+### Step 2: Dependencies Installation
+
+#### 2.1 Create Conda Environment
+
+```bash
+# Create dedicated environment
+conda env create -f environment.yml
+
+# Activate environment
+conda activate server
+
+# Verify Python version
+python --version  # Should display Python 3.10+
+```
+
+### Step 3: Environment Variables Configuration
+
+Create `.env` file:
 
 ```bash
 # Hugging Face Token (用於 pyannote.audio 等)
@@ -65,23 +118,49 @@ HUGGINGFACE_TOKEN=your_huggingface_token_here
 
 >  **取得 Hugging Face Token**: 前往 [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) 建立 token
 
-### 3. 生成 gRPC 程式碼
+### Step 4: Generate gRPC Code
 
 ```bash
+# Generate Protocol Buffers code
 python -m grpc_tools.protoc --proto_path=. --python_out=./proto --grpc_python_out=./proto model_service.proto
 ```
 
-### 4. 啟動服務
+### Step 5. Starting the Service
 
 ```bash
-# 啟動主要翻譯服務
+# Start main service
 python server.py
 
 # 測試連線 (另開終端)
 python client.py
 ```
 
-## 🔗 Detailed Documentation
+### API Usage Examples
 
-- 📚 **[Complete API Documentation](documents/api-reference.md)** - Detailed API reference and usage examples
-- 🛠️ **[Proto Reference](documents/proto-reference.md)** - Protocol buffer definitions and message formats
+## License
+
+This project is licensed under the **MIT License**.
+
+### MIT License
+
+```
+Copyright (c) 2025 Jirui的甜蜜小窩
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
