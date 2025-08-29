@@ -83,19 +83,29 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         so.enable_cpu_mem_arena = True
         so.intra_op_num_threads = max(1, os.cpu_count() // 2)
         
-        # EP 優先序（依部署目標調整）
-        ep_candidates = [
-            "QNNExecutionProvider",         # Snapdragon NPU
-            "OpenVINOExecutionProvider",    # Intel
-            "DirectMLExecutionProvider",    # Windows NPU / GPU
-            "CUDAExecutionProvider",        # NVIDIA GPU
-            "CPUExecutionProvider",         # CPU fallback
-        ]
+        # 從環境變數讀取 EP 優先序，若未設定則使用預設順序
+        custom_ep_order_str = os.environ.get("ONNX_EXECUTION_PROVIDERS")
         
+        if custom_ep_order_str:
+            logger.info(f"🔧 使用環境變數自訂的 EP 順序: {custom_ep_order_str}")
+            ep_candidates = [ep.strip() for ep in custom_ep_order_str.split(',')]
+        else:
+            # 預設 EP 優先序
+            ep_candidates = [
+                "QNNExecutionProvider",         # 1. Qualcomm NPU
+                "DirectMLExecutionProvider",    # 2. AMD/Windows NPU & GPU
+                "CUDAExecutionProvider",        # 3. NVIDIA GPU
+                "OpenVINOExecutionProvider",    # 4. Intel CPU/GPU
+                "CPUExecutionProvider",         # 5. CPU Fallback
+            ]
+            logger.info("🔧 使用預設的 EP 順序 (可透過 ONNX_EXECUTION_PROVIDERS 環境變數覆寫)")
+
         available_providers = ort.get_available_providers()
+        # 過濾出當前環境可用的 EP
         providers = [ep for ep in ep_candidates if ep in available_providers]
         
         if not providers:
+            logger.warning("⚠️ 找不到任何建議的 EP，強制使用 CPU。")
             providers = ["CPUExecutionProvider"]
         
         logger.debug(f"🔍 可用的 EP: {available_providers}")

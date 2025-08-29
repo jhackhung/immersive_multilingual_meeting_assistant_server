@@ -1,7 +1,16 @@
-print("!!! SERVER.PY HAS BEEN MODIFIED SUCCESSFULLY !!!")
+
 
 import sys
 import os
+
+# --- NPU/GPU 執行順序設定 ---
+# 在匯入任何 onnxruntime 相關模組前，設定預設的執行提供者 (Execution Provider) 順序。
+# 這讓應用程式無需使用者手動設定環境變數即可使用最佳硬體。
+# 順序: QNN (高通) > DirectML (AMD/Intel/其他) > CUDA (NVIDIA) > CPU (備用)
+# 如果使用者手動設定了 ONNX_EXECUTION_PROVIDERS 環境變數，則會優先使用該設定。
+default_execution_providers = "QNNExecutionProvider,DirectMLExecutionProvider,CUDAExecutionProvider,CPUExecutionProvider"
+os.environ.setdefault('ONNX_EXECUTION_PROVIDERS', default_execution_providers)
+print(f"🔧 ONNX 執行提供者順序已設定為: {os.environ['ONNX_EXECUTION_PROVIDERS']}")
 
 # Add the project root to sys.path for module discovery
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
