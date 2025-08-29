@@ -185,7 +185,7 @@ except ImportError:
 
 # 直接使用 librosa 進行音訊處理，不再嘗試導入自定義的 'audio' 模組
 import librosa
-print("✅ 音訊處理將使用 librosa")
+print("音訊處理將使用 librosa")
 
 print("Wav2Lip 模組載入成功 (自包含版本)")
 
@@ -212,10 +212,10 @@ class Wav2LipPytorch:
         if self.model is not None:
             return
             
-        print(f"⏳ 載入 Wav2Lip 模型從: {self.checkpoint_path}")
+        print(f"載入 Wav2Lip 模型從: {self.checkpoint_path}")
         
         if not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"❌ 找不到模型檔案: {self.checkpoint_path}")
+            raise FileNotFoundError(f"找不到模型檔案: {self.checkpoint_path}")
         
         # 載入模型
         self.model = Wav2LipModel()
@@ -236,14 +236,14 @@ class Wav2LipPytorch:
         self.model.to(self.device)
         self.model.eval()
         
-        print("✅ Wav2Lip PyTorch 模型載入成功")
+        print("Wav2Lip PyTorch 模型載入成功")
         
     def load_face_detector(self):
         """載入人臉檢測器"""
         if self.face_detector is not None:
             return
             
-        print("⏳ 載入人臉檢測器...")
+        print("載入人臉檢測器...")
         try:
             if face_detection is not None:
                 self.face_detector = face_detection.FaceAlignment(
@@ -251,15 +251,15 @@ class Wav2LipPytorch:
                     flip_input=False, 
                     device=self.device
                 )
-                print("✅ 人臉檢測器載入成功")
+                print("人臉檢測器載入成功")
             else:
-                print("⚠️ 人臉檢測模組不可用，將使用 OpenCV 作為備用方案")
+                print("人臉檢測模組不可用，將使用 OpenCV 作為備用方案")
                 import cv2
                 cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
                 self.face_detector = cv2.CascadeClassifier(cascade_path)
-                print("✅ OpenCV 人臉檢測器載入成功")
+                print("OpenCV 人臉檢測器載入成功")
         except Exception as e:
-            print(f"❌ 人臉檢測器載入失敗: {e}")
+            print(f"人臉檢測器載入失敗: {e}")
             print("將使用 OpenCV 作為備用方案")
             import cv2
             cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
@@ -303,7 +303,7 @@ class Wav2LipPytorch:
         for rect, image in zip(predictions, images):
             if rect is None:
                 # 如果沒有檢測到人臉，使用整個圖片
-                print("⚠️ 未檢測到人臉，使用整個圖片")
+                print("未檢測到人臉，使用整個圖片")
                 results.append([0, 0, image.shape[1], image.shape[0]])
                 continue
                 
@@ -335,7 +335,7 @@ class Wav2LipPytorch:
                 x2 = min(image.shape[1], int(x + w + padx2))
                 results.append([x1, y1, x2, y2])
             else:
-                print("⚠️ 未檢測到人臉，使用整個圖片")
+                print("未檢測到人臉，使用整個圖片")
                 results.append([0, 0, image.shape[1], image.shape[0]])
                 
         return self.get_smoothened_boxes(results)
@@ -361,7 +361,7 @@ class Wav2LipPytorch:
         processed_items = 0
         batch_count = 0
         
-        print(f"📦 Datagen開始: 總共{total_items}個項目需要處理")
+        print(f"Datagen開始: 總共{total_items}個項目需要處理")
         
         for i, (frame, mel, coord) in enumerate(zip(frames, mels, face_coords)):
             # 裁剪人臉區域 - 確保座標是整數
@@ -378,7 +378,7 @@ class Wav2LipPytorch:
                 batch_count += 1
                 processed_items += len(img_batch)
                 
-                print(f"📦 產生批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
+                print(f"產生批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
                 
                 img_batch = np.asarray(img_batch)
                 mel_batch = np.asarray(mel_batch)
@@ -398,7 +398,7 @@ class Wav2LipPytorch:
             batch_count += 1
             processed_items += len(img_batch)
             
-            print(f"📦 產生最終批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
+            print(f"產生最終批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
             
             img_batch = np.asarray(img_batch)
             mel_batch = np.asarray(mel_batch)
@@ -411,7 +411,7 @@ class Wav2LipPytorch:
             
             yield img_batch, mel_batch, frame_batch, coords_batch
             
-        print(f"📦 Datagen完成: 共處理{processed_items}/{total_items}個項目，{batch_count}個批次")
+        print(f"Datagen完成: 共處理{processed_items}/{total_items}個項目，{batch_count}個批次")
             
     def inference(self, image_path, audio_path, output_path, include_audio=False):
         """執行 Wav2Lip 推理
@@ -425,7 +425,7 @@ class Wav2LipPytorch:
         if self.model is None:
             self.load_model()
             
-        print("📷 讀取圖片...")
+        print("讀取圖片...")
         
         # 讀取圖片
         if image_path.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -436,21 +436,21 @@ class Wav2LipPytorch:
         else:
             raise ValueError("目前只支援靜態圖片")
             
-        print("🎵 處理音訊...")
+        print("處理音訊...")
         
         # 處理音訊 - 直接使用 librosa
         try:
             wav, sr = librosa.load(audio_path, sr=16000)
             mel = librosa.feature.melspectrogram(y=wav, sr=16000, n_mels=80, fmax=8000)
             mel = np.log(mel + 1e-6)
-            print(f"✅ 音訊處理成功，mel 形狀: {mel.shape}")
-            print(f"📊 音訊時長: {len(wav)/16000:.2f}秒, 採樣率: {sr}Hz")
-            
+            print(f"音訊處理成功，mel 形狀: {mel.shape}")
+            print(f"音訊時長: {len(wav)/16000:.2f}秒, 採樣率: {sr}Hz")
+
             if np.isnan(mel.reshape(-1)).sum() > 0:
                 raise ValueError('音訊檔案中包含 NaN 值')
                 
         except Exception as e:
-            print(f"❌ 音訊處理失敗: {e}")
+            print(f"音訊處理失敗: {e}")
             raise
             
         # 改進的 mel chunks 提取 - 確保處理所有音訊數據
@@ -467,13 +467,13 @@ class Wav2LipPytorch:
         video_fps = 25.0
         mel_frames_per_video_frame = mel_frames_per_second / video_fps  # 每個影片幀需要多少mel幀
         
-        print(f"📊 總mel幀數: {total_mel_frames}, 音訊時長: {audio_duration:.2f}秒")
-        print(f"📊 每秒mel幀數: {mel_frames_per_second:.2f}, 每影片幀mel幀數: {mel_frames_per_video_frame:.2f}")
+        print(f"總mel幀數: {total_mel_frames}, 音訊時長: {audio_duration:.2f}秒")
+        print(f"每秒mel幀數: {mel_frames_per_second:.2f}, 每影片幀mel幀數: {mel_frames_per_video_frame:.2f}")
         
         # 計算應該生成多少個影片幀來匹配音訊時長
         expected_video_frames = int(audio_duration * video_fps)
-        print(f"📊 預期影片幀數: {expected_video_frames}")
-        
+        print(f"預期影片幀數: {expected_video_frames}")
+
         # 生成mel chunks，每個chunk包含16個mel幀
         for i in range(expected_video_frames):
             # 計算這個影片幀對應的mel幀位置
@@ -514,25 +514,25 @@ class Wav2LipPytorch:
                     
             mel_chunks.append(mel_chunk)
             
-        print(f"📊 生成的mel chunks數量: {len(mel_chunks)}")
-        print(f"📊 預期影片時長: {len(mel_chunks)/25:.2f}秒")
+        print(f"生成的mel chunks數量: {len(mel_chunks)}")
+        print(f"預期影片時長: {len(mel_chunks)/25:.2f}秒")
         
         # 擴展幀以匹配音訊長度
         full_frames = frames * len(mel_chunks)
         
-        print("🎯 檢測人臉...")
+        print("檢測人臉...")
         
         # 檢測人臉
         try:
             face_coords = self.detect_faces(full_frames)
         except Exception as e:
-            print(f"⚠️ 人臉檢測失敗: {e}")
+            print(f"人臉檢測失敗: {e}")
             print("使用整個圖片作為人臉區域")
             # 如果人臉檢測失敗，使用整個圖片
             h, w = frames[0].shape[:2]
             face_coords = [[0, 0, w, h]] * len(full_frames)
         
-        print("🤖 執行 Wav2Lip 推理...")
+        print("執行 Wav2Lip 推理...")
         
         # 創建影片寫入器
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -545,7 +545,7 @@ class Wav2LipPytorch:
         for img_batch, mel_batch, frame_batch, coords_batch in self.datagen(full_frames, mel_chunks, face_coords):
             batch_count += 1
             batch_size = len(img_batch)
-            print(f"🔄 處理批次 {batch_count}, 批次大小: {batch_size}")
+            print(f"處理批次 {batch_count}, 批次大小: {batch_size}")
             
             with torch.no_grad():
                 img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to(self.device)
@@ -565,21 +565,21 @@ class Wav2LipPytorch:
                     
         out.release()
         
-        print(f"✅ Wav2Lip 影片生成完成: {output_path}")
-        print(f"📊 總共處理: {total_processed} 幀")
-        print(f"📊 預期幀數: {len(mel_chunks)} 幀")
-        print(f"📊 實際影片時長: {total_processed/25:.2f}秒")
-        
+        print(f"Wav2Lip 影片生成完成: {output_path}")
+        print(f"總共處理: {total_processed} 幀")
+        print(f"預期幀數: {len(mel_chunks)} 幀")
+        print(f"實際影片時長: {total_processed/25:.2f}秒")
+
         # 驗證影片是否正確生成
         if total_processed < len(mel_chunks):
-            print(f"⚠️ 警告: 處理的幀數({total_processed})少於預期({len(mel_chunks)})")
+            print(f"警告: 處理的幀數({total_processed})少於預期({len(mel_chunks)})")
             print("可能的原因: datagen方法未處理完所有數據")
         
         # 根據參數決定是否添加音檔
         final_output_path = output_path
         
         if include_audio:
-            print("🎵 添加音檔到影片...")
+            print("添加音檔到影片...")
             try:
                 import subprocess
                 # 檢查 ffmpeg 是否可用
@@ -604,14 +604,14 @@ class Wav2LipPytorch:
                 
                 if result.returncode == 0:
                     final_output_path = audio_output_path
-                    print("✅ 音檔添加成功")
+                    print("音檔添加成功")
                 else:
-                    print(f"⚠️ 音檔添加失敗: {result.stderr}")
+                    print(f"音檔添加失敗: {result.stderr}")
                     print("返回無聲影片")
                     
             except (subprocess.CalledProcessError, FileNotFoundError):
-                print("⚠️ ffmpeg 不可用，返回無聲影片")
+                print("ffmpeg 不可用，返回無聲影片")
         else:
-            print("📹 輸出無聲影片（不包含音檔）")
-        
+            print("輸出無聲影片（不包含音檔）")
+
         return final_output_path
