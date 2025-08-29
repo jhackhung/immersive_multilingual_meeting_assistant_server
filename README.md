@@ -81,3 +81,7 @@ python server.py
 python client.py
 ```
 
+## 🔗 Detailed Documentation
+
+- 📚 **[Complete API Documentation](documents/api-reference.md)** - Detailed API reference and usage examples
+- 🛠️ **[Proto Reference](documents/proto-reference.md)** - Protocol buffer definitions and message formats
