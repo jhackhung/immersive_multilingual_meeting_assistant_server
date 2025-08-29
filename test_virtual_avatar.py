@@ -38,7 +38,8 @@ def test_virtual_avatar():
             return
         
         # 使用測試音頻（如果存在）
-        test_audio_path = "identify_sample/ta.wav"  # 從workspace結構中看到的音頻
+        # 從workspace結構中看到的音頻
+        test_audio_path = "tts_sample\en_sample.wav"
         if not os.path.exists(test_audio_path):
             print(f"❌ 找不到測試音頻: {test_audio_path}")
             print("請確保音頻檔案存在，或修改路徑")

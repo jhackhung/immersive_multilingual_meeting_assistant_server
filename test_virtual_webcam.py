@@ -29,7 +29,6 @@ print(f"Video properties: {width}x{height} @ {fps} FPS, {total_frames} frames")
 with pyvirtualcam.Camera(width=width, height=height, fps=fps) as cam:
     print(f'Using virtual camera: {cam.device}')
     print(f'Streaming video from: {video_path}')
-    
     frame_count = 0
     while True:
         ret, frame = cap.read()

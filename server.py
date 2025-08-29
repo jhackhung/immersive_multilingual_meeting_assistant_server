@@ -29,14 +29,14 @@ from proto import model_service_pb2_grpc
 from apis.wav2lip_service import Wav2LipServicer
 from apis.translator_service import TranslatorService
 from apis.tts_service import TtsServicer
-from apis.llm_service import LLMServicer
+# from apis.llm_service import LLMServicer  # 已停用
 from apis.speech_recognition_service import SpeechRecognitionServicer
-from apis.rag_service import RAGService
+# from apis.rag_service import RAGService  # 已停用
 from apis.virtual_avatar_service import VirtualAvatarServicer
 from apis.stt_service import STTService
 
 # 設定日誌
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # --- 定義一個較大的訊息長度，例如 100MB ---
@@ -438,21 +438,11 @@ class ServerManager:
                 logger.warning(f"❌ STT 服務初始化失敗: {e}，但繼續啟動其他服務")
                 self.stt_service = None
 
-            logger.info("正在初始化 LLM 服務 (使用 Qwen)... ")
-            try:
-                self.llm_servicer = LLMServicer(model_name="Qwen/Qwen1.5-1.8B-Chat")
-                logger.info("✅ LLM 服務初始化成功")
-            except Exception as e:
-                logger.warning(f"❌ LLM 服務初始化失敗: {e}")
-                self.llm_servicer = None
+            logger.info("⏭️ 跳過 LLM 服務初始化 (已停用)")
+            self.llm_servicer = None
 
-            logger.info("正在初始化 RAG 服務...")
-            try:
-                self.rag_service = RAGService()
-                logger.info("✅ RAG 服務初始化成功")
-            except Exception as e:
-                logger.warning(f"❌ RAG 服務初始化失敗: {e}")
-                self.rag_service = None
+            logger.info("⏭️ 跳過 RAG 服務初始化 (已停用)")
+            self.rag_service = None
 
             logger.info("正在初始化虛擬頭像服務...")
             try:

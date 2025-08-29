@@ -20,6 +20,7 @@ import grpc
 import soundfile as sf
 import sounddevice as sd
 import pyvirtualcam
+import librosa
 from typing import Optional, Dict, Any
 import logging
 
@@ -53,6 +54,7 @@ class VirtualMicrophoneManager:
         self.is_streaming = False
         self.current_audio = None
         self.current_frame = 0
+        self.audio_lock = threading.Lock()  # Add lock for thread safety
         
     def find_virtual_device(self):
         """查找虛擬音頻設備"""
@@ -77,28 +79,29 @@ class VirtualMicrophoneManager:
         if status:
             logger.warning(f"虛擬麥克風音頻狀態: {status}")
         
-        # 嘗試從隊列獲取新音頻
-        try:
-            while not self.audio_queue.empty():
-                self.current_audio = self.audio_queue.get_nowait()
-                self.current_frame = 0
-        except queue.Empty:
-            pass
-        
-        # 填充輸出數據
-        if self.current_audio is not None and self.current_frame < len(self.current_audio):
-            end_frame = min(self.current_frame + frames, len(self.current_audio))
-            chunk_size = end_frame - self.current_frame
+        with self.audio_lock:
+            # 嘗試從隊列獲取新音頻
+            try:
+                while not self.audio_queue.empty():
+                    self.current_audio = self.audio_queue.get_nowait()
+                    self.current_frame = 0
+            except queue.Empty:
+                pass
             
-            outdata[:chunk_size, 0] = self.current_audio[self.current_frame:end_frame]
-            
-            if chunk_size < frames:
-                outdata[chunk_size:, 0] = 0  # 填充靜音
-            
-            self.current_frame = end_frame
-        else:
-            # 沒有音頻數據，輸出靜音
-            outdata[:, 0] = 0
+            # 填充輸出數據
+            if self.current_audio is not None and self.current_frame < len(self.current_audio):
+                end_frame = min(self.current_frame + frames, len(self.current_audio))
+                chunk_size = end_frame - self.current_frame
+                
+                outdata[:chunk_size, 0] = self.current_audio[self.current_frame:end_frame]
+                
+                if chunk_size < frames:
+                    outdata[chunk_size:, 0] = 0  # 填充靜音
+                
+                self.current_frame = end_frame
+            else:
+                # 沒有音頻數據，輸出靜音
+                outdata[:, 0] = 0
     
     def start_streaming(self):
         """開始音頻流"""
@@ -158,14 +161,49 @@ class VirtualWebcamManager:
         self.fps = fps
         self.camera = None
         self.is_streaming = False
-        self.video_queue = queue.Queue(maxsize=10)  # 限制隊列大小避免記憶體問題
+        self.video_queue = queue.Queue(maxsize=50)  # 增加隊列大小以支持更流暢的播放
         self.current_frame = None
+        self.default_frame = None  # 添加默認幀屬性
         self.streaming_thread = None
         self.stop_flag = threading.Event()
+        
+    def set_default_avatar_image(self, image_path: str):
+        """設置默認頭像圖片"""
+        try:
+            # 讀取圖片
+            avatar_img = cv2.imread(image_path)
+            if avatar_img is None:
+                logger.warning(f"無法讀取頭像圖片: {image_path}")
+                return False
+            
+            logger.info(f"讀取頭像圖片: {image_path}, 原始尺寸: {avatar_img.shape}")
+            
+            # 調整圖片大小到攝像頭尺寸
+            self.default_frame = cv2.resize(avatar_img, (self.width, self.height))
+            logger.info(f"頭像圖片已調整到目標尺寸: {self.width}x{self.height}")
+            
+            # 確保數據類型正確
+            if self.default_frame.dtype != np.uint8:
+                self.default_frame = self.default_frame.astype(np.uint8)
+            
+            # 如果當前沒有播放視頻，立即更新當前幀
+            if self.current_frame is None:
+                self.current_frame = self.default_frame.copy()
+            
+            logger.info(f"成功設置默認頭像圖片: {image_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"設置默認頭像圖片失敗: {e}")
+            import traceback
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
+            return False
         
     def initialize(self):
         """初始化虛擬攝像頭"""
         try:
+            if self.camera is not None:
+                self.camera.close()
             self.camera = pyvirtualcam.Camera(
                 width=self.width, 
                 height=self.height, 
@@ -206,40 +244,55 @@ class VirtualWebcamManager:
         """視頻流循環"""
         frame_duration = 1.0 / self.fps
         
-        # 創建默認幀（黑屏或靜態圖像）
-        default_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        cv2.putText(default_frame, "Avatar Ready", (50, self.height//2), 
+        # 創建基本默認幀（黑屏或靜態圖像）- 只在沒有設置頭像圖片時使用
+        basic_default_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        cv2.putText(basic_default_frame, "Avatar Ready", (50, self.height//2), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         while not self.stop_flag.is_set():
             start_time = time.time()
             
-            # 獲取最新幀
+            # 獲取下一幀（一次只取一幀以保持正確的播放速度）
             frame = None
             try:
-                # 嘗試獲取最新的幀，清空舊幀
-                while not self.video_queue.empty():
-                    frame = self.video_queue.get_nowait()
+                # 只取一幀，不要清空整個隊列
+                frame = self.video_queue.get_nowait()
+                self.current_frame = frame
+                logger.debug("從隊列獲取新視頻幀")
             except queue.Empty:
+                # 沒有新幀，繼續使用當前幀
                 pass
             
-            # 使用最新幀或默認幀
-            if frame is not None:
-                self.current_frame = frame
+            # 確定要顯示的幀：當前幀 -> 頭像默認幀 -> 基本默認幀
+            display_frame = None
+            if self.current_frame is not None:
+                display_frame = self.current_frame.copy()
+            elif self.default_frame is not None:
+                display_frame = self.default_frame.copy()
+            else:
+                display_frame = basic_default_frame.copy()
             
-            display_frame = self.current_frame if self.current_frame is not None else default_frame
-            
-            # 調整幀大小
-            if display_frame.shape[:2] != (self.height, self.width):
-                display_frame = cv2.resize(display_frame, (self.width, self.height))
+            # 標準化幀
+            display_frame = self._normalize_frame(display_frame)
+            if display_frame is None:
+                logger.error("無法標準化顯示幀，使用基本默認幀")
+                display_frame = basic_default_frame.copy()
             
             # 轉換顏色格式 (BGR -> RGB)
-            display_frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+            try:
+                display_frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+            except Exception as e:
+                logger.error(f"顏色格式轉換失敗: {e}")
+                # 使用基本默認幀作為後備
+                display_frame_rgb = cv2.cvtColor(basic_default_frame, cv2.COLOR_BGR2RGB)
             
             # 發送到虛擬攝像頭
             if self.camera:
-                self.camera.send(display_frame_rgb)
-                self.camera.sleep_until_next_frame()
+                try:
+                    self.camera.send(display_frame_rgb)
+                    self.camera.sleep_until_next_frame()
+                except Exception as e:
+                    logger.error(f"發送幀到虛擬攝像頭失敗: {e}")
             
             # 控制幀率
             elapsed = time.time() - start_time
@@ -249,18 +302,106 @@ class VirtualWebcamManager:
     
     def queue_video_frames(self, frames: list):
         """將視頻幀添加到播放隊列"""
-        for frame in frames:
-            try:
-                self.video_queue.put_nowait(frame)
-            except queue.Full:
-                # 如果隊列滿了，移除舊幀
-                try:
-                    self.video_queue.get_nowait()
-                    self.video_queue.put_nowait(frame)
-                except queue.Empty:
-                    pass
+        if not frames:
+            logger.warning("嘗試添加空視頻幀列表")
+            return
         
-        logger.debug(f"已添加 {len(frames)} 幀到視頻隊列")
+        logger.info(f"開始添加 {len(frames)} 幀到視頻隊列")
+        
+        # 清空現有隊列以避免舊幀堆積
+        while not self.video_queue.empty():
+            try:
+                self.video_queue.get_nowait()
+            except queue.Empty:
+                break
+        
+        # 使用線程逐幀添加以控制播放速度
+        def add_frames_gradually():
+            frame_interval = 1.0 / self.fps  # 每幀間隔時間
+            frames_added = 0
+            
+            for i, frame in enumerate(frames):
+                if frame is None:
+                    logger.warning(f"跳過第 {i+1} 個空視頻幀")
+                    continue
+                
+                try:
+                    # 統一調整幀尺寸以避免解析度不匹配問題
+                    normalized_frame = self._normalize_frame(frame)
+                    if normalized_frame is None:
+                        logger.warning(f"第 {i+1} 幀標準化失敗，跳過")
+                        continue
+                    
+                    # 如果隊列滿了，等待一下
+                    while self.video_queue.full():
+                        time.sleep(0.01)
+                    
+                    self.video_queue.put(normalized_frame, timeout=1.0)
+                    frames_added += 1
+                    
+                    # 控制添加速度，略快於播放速度以保持緩衝
+                    if i < len(frames) - 1:  # 不在最後一幀等待
+                        time.sleep(frame_interval * 0.8)  # 比播放速度快20%
+                        
+                except queue.Full:
+                    logger.warning(f"視頻隊列已滿，跳過第 {i+1} 幀")
+                    continue
+                except Exception as e:
+                    logger.error(f"添加第 {i+1} 幀時出錯: {e}")
+                    continue
+            
+            logger.info(f"視頻幀添加完成: {frames_added}/{len(frames)} 幀")
+        
+        # 在後台線程中添加幀
+        add_thread = threading.Thread(target=add_frames_gradually, daemon=True)
+        add_thread.start()
+        
+        logger.debug(f"開始後台添加 {len(frames)} 幀到視頻隊列")
+    
+    def _normalize_frame(self, frame: np.ndarray) -> np.ndarray:
+        """標準化幀尺寸和格式"""
+        try:
+            if frame is None:
+                logger.warning("嘗試標準化空幀")
+                return None
+            
+            # 檢查並調整尺寸
+            if frame.shape[:2] != (self.height, self.width):
+                logger.debug(f"調整幀尺寸從 {frame.shape[:2]} 到 ({self.height}, {self.width})")
+                frame = cv2.resize(frame, (self.width, self.height))
+            
+            # 確保數據類型正確
+            if frame.dtype != np.uint8:
+                frame = frame.astype(np.uint8)
+            
+            # 確保是3通道BGR圖像
+            if len(frame.shape) == 2:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif len(frame.shape) == 3 and frame.shape[2] == 4:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            elif len(frame.shape) == 3 and frame.shape[2] != 3:
+                logger.warning(f"未知的通道數: {frame.shape[2]}")
+                # 如果通道數不是3，嘗試轉換為3通道
+                if frame.shape[2] == 1:
+                    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                else:
+                    # 截取前3個通道
+                    frame = frame[:, :, :3]
+            
+            return frame
+            
+        except Exception as e:
+            logger.error(f"標準化幀失敗: {e}")
+            return None
+
+    def reset_to_default_avatar(self):
+        """重置到默認頭像圖片"""
+        if self.default_frame is not None:
+            self.current_frame = self.default_frame.copy()
+            logger.debug("已重置到默認頭像圖片")
+        else:
+            self.current_frame = None
+            logger.debug("已清除當前幀，將顯示基本默認幀")
 
 class VirtualAvatarService:
     """虛擬頭像服務主類"""
@@ -300,6 +441,17 @@ class VirtualAvatarService:
             
         except Exception as e:
             logger.error(f"服務初始化失敗: {e}")
+            # 清理已初始化的服務
+            if hasattr(self, 'virtual_mic'):
+                try:
+                    self.virtual_mic.stop_streaming()
+                except:
+                    pass
+            if hasattr(self, 'virtual_webcam'):
+                try:
+                    self.virtual_webcam.stop_streaming()
+                except:
+                    pass
             raise
     
     def init_avatar(self, image_data: bytes, sample_audio_data: bytes) -> bool:
@@ -343,15 +495,21 @@ class VirtualAvatarService:
             self.avatar_sample_audio = sample_audio_data
             
             # 啟動虛擬設備
-            if not self.virtual_mic.start_streaming():
-                logger.warning("虛擬麥克風啟動失敗，但繼續初始化")
+            self.microphone_initialized = self.virtual_mic.start_streaming()
+            if not self.microphone_initialized:
+                logger.warning("虛擬麥克風啟動失敗")
+
+            self.camera_initialized = self.virtual_webcam.start_streaming()
+            if not self.camera_initialized:
+                logger.warning("虛擬攝像頭啟動失敗")
+
+            # 設置默認頭像圖片
+            if not self.virtual_webcam.set_default_avatar_image(self.avatar_image_path):
+                logger.warning("設置默認頭像圖片失敗")
+
             
-            if not self.virtual_webcam.start_streaming():
-                logger.warning("虛擬攝像頭啟動失敗，但繼續初始化")
-            
-            self.avatar_initialized = True
-            logger.info("虛擬頭像初始化成功")
-            return True
+            self.avatar_initialized = self.camera_initialized and self.microphone_initialized
+            return self.avatar_initialized
             
         except Exception as e:
             logger.error(f"虛擬頭像初始化失敗: {e}")
@@ -424,6 +582,7 @@ class VirtualAvatarService:
             
             # 4. 同步播放音頻和視頻
             logger.debug("開始同步播放...")
+            logger.info(f"準備播放 {len(video_frames)} 幀視頻，音頻長度: {len(audio_data)/audio_sr:.2f}秒")
             self._play_synced_media(audio_data, audio_sr, video_frames)
             
             logger.info("頭像說話完成")
@@ -437,52 +596,125 @@ class VirtualAvatarService:
     
     def _extract_video_frames(self, video_data: bytes) -> list:
         """從視頻數據中提取幀"""
+        temp_video_path = None
         try:
+            if not video_data:
+                logger.error("視頻數據為空")
+                return []
+                
             # 保存視頻到臨時文件
             with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_video:
                 temp_video.write(video_data)
                 temp_video_path = temp_video.name
             
+            # 驗證文件是否成功創建
+            if not os.path.exists(temp_video_path) or os.path.getsize(temp_video_path) == 0:
+                logger.error("臨時視頻文件創建失敗或為空")
+                return []
+            
             # 使用 OpenCV 讀取視頻
             cap = cv2.VideoCapture(temp_video_path)
-            frames = []
+            if not cap.isOpened():
+                logger.error(f"無法打開視頻文件: {temp_video_path}")
+                return []
             
-            while True:
+            # 獲取視頻信息
+            source_fps = cap.get(cv2.CAP_PROP_FPS)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            logger.info(f"源視頻信息: FPS={source_fps}, 總幀數={total_frames}, 尺寸={video_width}x{video_height}")
+            
+            frames = []
+            frame_count = 0
+            max_frames = 1000  # 限制最大幀數防止記憶體問題
+            
+            # 如果源視頻幀率與目標幀率不同，進行幀率轉換
+            target_fps = self.virtual_webcam.fps if self.virtual_webcam else 25
+            frame_skip = max(1, int(source_fps / target_fps)) if source_fps > target_fps else 1
+            
+            logger.info(f"幀率轉換: 源FPS={source_fps} -> 目標FPS={target_fps}, 跳幀間隔={frame_skip}")
+            logger.info(f"解析度轉換: 源尺寸={video_width}x{video_height} -> 目標尺寸={self.virtual_webcam.width if self.virtual_webcam else 640}x{self.virtual_webcam.height if self.virtual_webcam else 480}")
+            
+            while frame_count < max_frames:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                frames.append(frame)
+                
+                # 按跳幀間隔提取幀以匹配目標幀率
+                if frame_count % frame_skip == 0:
+                    # 立即調整幀尺寸以確保一致性
+                    target_width = self.virtual_webcam.width if self.virtual_webcam else 640
+                    target_height = self.virtual_webcam.height if self.virtual_webcam else 480
+                    
+                    if frame.shape[:2] != (target_height, target_width):
+                        frame = cv2.resize(frame, (target_width, target_height))
+                    
+                    # 確保數據類型正確
+                    if frame.dtype != np.uint8:
+                        frame = frame.astype(np.uint8)
+                    
+                    frames.append(frame)
+                
+                frame_count += 1
             
             cap.release()
             
-            # 清理臨時文件
-            try:
-                os.unlink(temp_video_path)
-            except:
-                pass
-            
-            logger.debug(f"從視頻中提取了 {len(frames)} 幀")
+            logger.info(f"從視頻中提取了 {len(frames)} 幀 (原始 {frame_count} 幀)")
             return frames
             
         except Exception as e:
             logger.error(f"提取視頻幀失敗: {e}")
+            import traceback
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return []
+        finally:
+            # 清理臨時文件
+            if temp_video_path and os.path.exists(temp_video_path):
+                try:
+                    os.unlink(temp_video_path)
+                except Exception as e:
+                    logger.warning(f"清理臨時視頻文件失敗: {e}")
     
     def _play_synced_media(self, audio_data: np.ndarray, audio_sr: int, video_frames: list):
         """同步播放音頻和視頻"""
         try:
+            logger.info(f"開始播放媒體 - 音頻: {len(audio_data)/audio_sr:.2f}秒, 視頻: {len(video_frames)}幀")
+            
             # 將音頻加入播放隊列
-            if self.virtual_mic.is_streaming:
+            if self.virtual_mic and self.virtual_mic.is_streaming:
                 self.virtual_mic.queue_audio(audio_data, audio_sr)
+                logger.debug("音頻已加入播放隊列")
+            else:
+                logger.warning("虛擬麥克風未啟動，跳過音頻播放")
             
             # 將視頻幀加入播放隊列
-            if self.virtual_webcam.is_streaming:
+            if self.virtual_webcam and self.virtual_webcam.is_streaming:
                 self.virtual_webcam.queue_video_frames(video_frames)
+                logger.debug("視頻幀已開始加入播放隊列")
+                
+                # 計算視頻播放時間並在後台等待視頻播放完畢後重置到默認頭像
+                if video_frames:
+                    video_duration = len(video_frames) / self.virtual_webcam.fps
+                    logger.info(f"預計視頻播放時間: {video_duration:.2f}秒")
+                    
+                    def reset_after_video():
+                        time.sleep(video_duration + 1.0)  # 額外等待1秒確保視頻播放完畢
+                        logger.info("視頻播放完畢，重置到默認頭像")
+                        self.virtual_webcam.reset_to_default_avatar()
+                    
+                    # 在背景線程中執行重置
+                    reset_thread = threading.Thread(target=reset_after_video, daemon=True)
+                    reset_thread.start()
+            else:
+                logger.warning("虛擬攝像頭未啟動，跳過視頻播放")
             
-            logger.debug("媒體已加入播放隊列")
+            logger.info("媒體播放啟動成功")
             
         except Exception as e:
             logger.error(f"媒體播放失敗: {e}")
+            import traceback
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
     
     def _cleanup_temp_files(self):
         """清理臨時文件"""
@@ -497,10 +729,10 @@ class VirtualAvatarService:
         """清理資源"""
         logger.info("清理虛擬頭像服務資源...")
         
-        if self.virtual_mic:
+        if hasattr(self, 'virtual_mic') and self.virtual_mic:
             self.virtual_mic.stop_streaming()
         
-        if self.virtual_webcam:
+        if hasattr(self, 'virtual_webcam') and self.virtual_webcam:
             self.virtual_webcam.stop_streaming()
         
         self._cleanup_temp_files()

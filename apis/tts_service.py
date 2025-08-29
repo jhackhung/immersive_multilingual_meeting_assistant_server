@@ -757,94 +757,94 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             context.set_details(f"內部伺服器錯誤: {str(e)}")
             return model_service_pb2.TtsResponse()
     
-    def Tts(self, request, context):
-        """
-        LLM 回答場景優化的 TTS 處理 - 修復版本
-        """
-        start_time = time.time()
+    # def Tts(self, request, context):
+    #     """
+    #     LLM 回答場景優化的 TTS 處理 - 修復版本
+    #     """
+    #     start_time = time.time()
 
-        try:
-            # 輸入驗證
-            is_valid, error_msg = self._validate_request(request)
-            if not is_valid:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details(error_msg)
-                return model_service_pb2.TtsResponse()
+    #     try:
+    #         # 輸入驗證
+    #         is_valid, error_msg = self._validate_request(request)
+    #         if not is_valid:
+    #             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+    #             context.set_details(error_msg)
+    #             return model_service_pb2.TtsResponse()
             
-            text = request.text_to_speak.strip()
-            language = request.language or "en"
+    #         text = request.text_to_speak.strip()
+    #         language = request.language or "en"
             
-            logger.info(f"📝 LLM TTS 請求: '{text[:50]}...' ({len(text)} 字符)")
+    #         logger.info(f"📝 LLM TTS 請求: '{text[:50]}...' ({len(text)} 字符)")
             
-            # 快速策略選擇
-            use_fast_mode = (
-                len(text) <= 200 and  # 中短文本
-                not request.reference_audio and  # 不使用自定義聲音
-                self.fast_mode_enabled  # 快速模式啟用
-            )
+    #         # 快速策略選擇
+    #         use_fast_mode = (
+    #             len(text) <= 200 and  # 中短文本
+    #             not request.reference_audio and  # 不使用自定義聲音
+    #             self.fast_mode_enabled  # 快速模式啟用
+    #         )
             
-            if use_fast_mode:
-                logger.info("🚀 嘗試快速模式")
+    #         if use_fast_mode:
+    #             logger.info("🚀 嘗試快速模式")
                 
-                if len(text) <= 50:
-                    # 短文本：直接快速生成
-                    logger.info("📝 使用短文本快速模式")
-                    audio_bytes = self._fast_generate_sentence(text, language)
+    #             if len(text) <= 50:
+    #                 # 短文本：直接快速生成
+    #                 logger.info("📝 使用短文本快速模式")
+    #                 audio_bytes = self._fast_generate_sentence(text, language)
                     
-                    if audio_bytes:
-                        total_time = time.time() - start_time
-                        logger.info(f"⚡ 短文本完成: {total_time:.2f}s")
-                        return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
-                    else:
-                        logger.warning("⚠️ 短文本快速模式失敗，回退到標準模式")
+    #                 if audio_bytes:
+    #                     total_time = time.time() - start_time
+    #                     logger.info(f"⚡ 短文本完成: {total_time:.2f}s")
+    #                     return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
+    #                 else:
+    #                     logger.warning("⚠️ 短文本快速模式失敗，回退到標準模式")
                         
-                else:
-                    # 中等文本：分句處理
-                    logger.info("📚 使用分句模式")
-                    sentences = self._split_into_sentences(text)
-                    logger.info(f"📊 分割為 {len(sentences)} 個句子")
+    #             else:
+    #                 # 中等文本：分句處理
+    #                 logger.info("📚 使用分句模式")
+    #                 sentences = self._split_into_sentences(text)
+    #                 logger.info(f"📊 分割為 {len(sentences)} 個句子")
                     
-                    if len(sentences) == 1:
-                        # 只有一句，直接處理
-                        audio_bytes = self._fast_generate_sentence(sentences[0], language)
-                        if audio_bytes:
-                            total_time = time.time() - start_time
-                            logger.info(f"⚡ 單句完成: {total_time:.2f}s")
-                            return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
-                    else:
-                        # 多句處理 - 先嘗試快速，失敗則回退
-                        try:
-                            audio_chunks = []
-                            all_success = True
+    #                 if len(sentences) == 1:
+    #                     # 只有一句，直接處理
+    #                     audio_bytes = self._fast_generate_sentence(sentences[0], language)
+    #                     if audio_bytes:
+    #                         total_time = time.time() - start_time
+    #                         logger.info(f"⚡ 單句完成: {total_time:.2f}s")
+    #                         return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
+    #                 else:
+    #                     # 多句處理 - 先嘗試快速，失敗則回退
+    #                     try:
+    #                         audio_chunks = []
+    #                         all_success = True
                             
-                            for i, sentence in enumerate(sentences):
-                                chunk = self._fast_generate_sentence(sentence, language)
-                                if chunk:
-                                    audio_chunks.append(chunk)
-                                else:
-                                    logger.warning(f"⚠️ 句子 {i+1} 快速生成失敗")
-                                    all_success = False
-                                    break
+    #                         for i, sentence in enumerate(sentences):
+    #                             chunk = self._fast_generate_sentence(sentence, language)
+    #                             if chunk:
+    #                                 audio_chunks.append(chunk)
+    #                             else:
+    #                                 logger.warning(f"⚠️ 句子 {i+1} 快速生成失敗")
+    #                                 all_success = False
+    #                                 break
                             
-                            if all_success and audio_chunks:
-                                audio_bytes = self._merge_audio_files(audio_chunks)
-                                if audio_bytes:
-                                    total_time = time.time() - start_time
-                                    logger.info(f"⚡ 分句並行完成: {total_time:.2f}s")
-                                    return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
+    #                         if all_success and audio_chunks:
+    #                             audio_bytes = self._merge_audio_files(audio_chunks)
+    #                             if audio_bytes:
+    #                                 total_time = time.time() - start_time
+    #                                 logger.info(f"⚡ 分句並行完成: {total_time:.2f}s")
+    #                                 return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
                             
-                        except Exception as e:
-                            logger.warning(f"⚠️ 分句並行失敗: {e}")
+    #                     except Exception as e:
+    #                         logger.warning(f"⚠️ 分句並行失敗: {e}")
             
-            # 回退到標準模式（原有的完整邏輯）
-            logger.info("🔄 使用標準 TTS 模式")
-            return self._standard_tts_process(request, context, start_time)
+    #         # 回退到標準模式（原有的完整邏輯）
+    #         logger.info("🔄 使用標準 TTS 模式")
+    #         return self._standard_tts_process(request, context, start_time)
             
-        except Exception as e:
-            logger.error(f"❌ TTS 處理錯誤: {e}")
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"TTS 處理失敗: {str(e)}")
-            return model_service_pb2.TtsResponse()
+    #     except Exception as e:
+    #         logger.error(f"❌ TTS 處理錯誤: {e}")
+    #         context.set_code(grpc.StatusCode.INTERNAL)
+    #         context.set_details(f"TTS 處理失敗: {str(e)}")
+    #         return model_service_pb2.TtsResponse()
     
     def _standard_tts_process(self, request, context, start_time):
         """
