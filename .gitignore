@@ -59,6 +59,7 @@ logs/
 models/onnx_llm_model/
 models/onnx_embedding_model/
 models/whisper_model/
+models/onnx_whisper_models/
 models/*.onnx
 models/*.pt
 models/*.bin
