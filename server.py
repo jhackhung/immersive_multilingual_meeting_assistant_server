@@ -32,6 +32,7 @@ from apis.tts_service import TtsServicer
 from apis.llm_service import LLMServicer
 from apis.speech_recognition_service import SpeechRecognitionServicer
 from apis.rag_service import RAGService
+from apis.virtual_avatar_service import VirtualAvatarServicer
 from apis.stt_service import STTService
 
 # 設定日誌
@@ -70,15 +71,16 @@ class TranslatorServicer(model_service_pb2_grpc.TranslatorServiceServicer):
 class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     """統一的媒體服務實現"""
     
-    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer, rag_service, stt_service):
+    def __init__(self, tts_servicer, wav2lip_servicer, speaker_annote_servicer, llm_servicer, speech_recognition_servicer, rag_service, stt_service, virtual_avatar_servicer):
         self.tts_servicer = tts_servicer
         self.wav2lip_servicer = wav2lip_servicer
         self.speaker_annote_servicer = speaker_annote_servicer
         self.llm_servicer = llm_servicer
         self.speech_recognition_servicer = speech_recognition_servicer
         self.rag_service = rag_service
+        self.virtual_avatar_servicer = virtual_avatar_servicer
         self.stt_service = stt_service
-        logger.info("MediaServicer 已初始化（包含 RAG, LLM 和語音識別服務）")
+        logger.info("MediaServicer 已初始化（包含 RAG, LLM, 語音識別 和 虛擬頭像 服務）")
     
     def Tts(self, request, context):
         logger.info("收到 TTS 請求")
@@ -248,6 +250,30 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"處理問答時發生內部錯誤: {str(e)}")
             return model_service_pb2.AnswerQuestionResponse(success=False)
+    
+    def InitAvatar(self, request, context):
+        logger.info("收到 InitAvatar 請求")
+        if self.virtual_avatar_servicer:
+            return self.virtual_avatar_servicer.InitAvatar(request, context)
+        else:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("虛擬頭像服務未啟用")
+            return model_service_pb2.InitAvatarResponse(
+                success=False,
+                message="虛擬頭像服務未啟用"
+            )
+    
+    def AvatarSpeak(self, request, context):
+        logger.info("收到 AvatarSpeak 請求")
+        if self.virtual_avatar_servicer:
+            return self.virtual_avatar_servicer.AvatarSpeak(request, context)
+        else:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details("虛擬頭像服務未啟用")
+            return model_service_pb2.AvatarSpeakResponse(
+                success=False,
+                message="虛擬頭像服務未啟用"
+            )
 
 class SpeakerAnnoteServicer:
     """語者辨識服務的包裝器"""
@@ -365,6 +391,7 @@ class ServerManager:
         self.llm_servicer = None
         self.speech_recognition_servicer = None
         self.rag_service = None
+        self.virtual_avatar_servicer = None
         self.stt_service = None
         self.server = None
         
@@ -426,6 +453,14 @@ class ServerManager:
             except Exception as e:
                 logger.warning(f"❌ RAG 服務初始化失敗: {e}")
                 self.rag_service = None
+
+            logger.info("正在初始化虛擬頭像服務...")
+            try:
+                self.virtual_avatar_servicer = VirtualAvatarServicer()
+                logger.info("✅ 虛擬頭像服務初始化成功")
+            except Exception as e:
+                logger.warning(f"❌ 虛擬頭像服務初始化失敗: {e}")
+                self.virtual_avatar_servicer = None
             
             return True
             
@@ -456,6 +491,7 @@ class ServerManager:
             llm_servicer=self.llm_servicer,
             speech_recognition_servicer=self.speech_recognition_servicer,
             rag_service=self.rag_service,
+            virtual_avatar_servicer=self.virtual_avatar_servicer,
             stt_service=self.stt_service
         )
         model_service_pb2_grpc.add_MediaServiceServicer_to_server(
@@ -485,6 +521,8 @@ class ServerManager:
             services.append("🤖 LLM 服務")
         if self.rag_service:
             services.append("📚 RAG 問答服務")
+        if self.virtual_avatar_servicer:
+            services.append("🎭 虛擬頭像服務")
 
         logger.info("🚀 gRPC 伺服器已成功啟動，監聽埠 50051...")
         logger.info(f"📋 可用服務: {', '.join(services)}")

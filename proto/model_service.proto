@@ -32,6 +32,10 @@ service MediaService {
   // 新增的 RAG 問答 RPC
   rpc AnswerQuestionFromDocuments(AnswerQuestionRequest) returns (AnswerQuestionResponse);
 
+  // 虛擬頭像相關 RPC
+  rpc InitAvatar(InitAvatarRequest) returns (InitAvatarResponse);
+  rpc AvatarSpeak(AvatarSpeakRequest) returns (AvatarSpeakResponse);
+
   // STT service
   rpc StreamingRecognize (stream StreamingRecognizeRequest) returns (stream StreamingRecognizeResponse);
 }
@@ -258,4 +262,30 @@ message StreamingRecognizeResponse {
 
   // 伺服器端處理此次請求的時間（秒）。
   double server_time_sec = 8;
+}
+
+// --- 虛擬頭像相關訊息 ---
+
+// 初始化頭像請求
+message InitAvatarRequest {
+    bytes image_data = 1;        // 頭像圖片數據
+    bytes sample_audio_data = 2; // 樣本音頻數據
+}
+
+// 初始化頭像回應
+message InitAvatarResponse {
+    bool success = 1;   // 是否成功
+    string message = 2; // 回應訊息
+}
+
+// 頭像說話請求
+message AvatarSpeakRequest {
+    string text = 1;     // 要說的文字
+    string language = 2; // 語言代碼 (可選，默認 "en")
+}
+
+// 頭像說話回應
+message AvatarSpeakResponse {
+    bool success = 1;   // 是否成功
+    string message = 2; // 回應訊息
 }

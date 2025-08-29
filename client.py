@@ -340,6 +340,311 @@ def run_llm_comprehensive_test(stub):
         # 因為我們無法從 run_llm_chat_test 取得回應
         # 在實際應用中，您會想要保存回應並加到歷史中
 
+def run_virtual_avatar_test(stub, image_path, audio_path):
+    """測試虛擬頭像功能"""
+    print(f"\n🎭 測試虛擬頭像服務:")
+    print("-" * 30)
+    
+    try:
+        # 1. 測試初始化頭像
+        print(f"\n📁 步驟 1: 初始化虛擬頭像")
+        print(f"   圖片路徑: {image_path}")
+        print(f"   音頻路徑: {audio_path}")
+        
+        # 讀取圖片和音頻數據
+        try:
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+            print(f"✅ 圖片讀取成功: {len(image_data)} bytes")
+        except FileNotFoundError:
+            print(f"❌ 找不到圖片檔案: {image_path}")
+            return
+        
+        try:
+            with open(audio_path, "rb") as f:
+                audio_data = f.read()
+            print(f"✅ 音頻讀取成功: {len(audio_data)} bytes")
+        except FileNotFoundError:
+            print(f"❌ 找不到音頻檔案: {audio_path}")
+            return
+        
+        # 發送初始化請求
+        init_request = model_service_pb2.InitAvatarRequest(
+            image_data=image_data,
+            sample_audio_data=audio_data
+        )
+        
+        print("⏳ 正在初始化頭像...")
+        init_response = stub.InitAvatar(init_request)
+        
+        if init_response.success:
+            print(f"✅ 頭像初始化成功: {init_response.message}")
+        else:
+            print(f"❌ 頭像初始化失敗: {init_response.message}")
+            return
+        
+        # 2. 測試頭像說話功能
+        print(f"\n🗣️ 步驟 2: 測試頭像說話功能")
+        
+        test_sentences = [
+            ("Hello, I am your virtual avatar!", "en"),
+            ("This is a test of the avatar speech system.", "en"),
+            ("你好，我是你的虛擬頭像！", "zh-cn"),
+            ("歡迎使用虛擬頭像系統。", "zh-cn"),
+            ("Nice to meet you! How can I help you today?", "en")
+        ]
+        
+        for i, (text, language) in enumerate(test_sentences, 1):
+            print(f"\n📝 測試 {i}/{len(test_sentences)}: '{text}' ({language})")
+            
+            speak_request = model_service_pb2.AvatarSpeakRequest(
+                text=text,
+                language=language
+            )
+            
+            print("⏳ 正在生成語音和視頻...")
+            import time
+            start_time = time.time()
+            
+            try:
+                speak_response = stub.AvatarSpeak(speak_request)
+                
+                end_time = time.time()
+                duration = end_time - start_time
+                
+                if speak_response.success:
+                    print(f"✅ 頭像說話成功: {speak_response.message}")
+                    print(f"⏱️ 處理時間: {duration:.2f} 秒")
+                    print("📺 請檢查虛擬攝像頭輸出（如 OBS 或視頻會議軟體）")
+                    print("🎵 請檢查虛擬麥克風輸出（如音頻錄製軟體）")
+                else:
+                    print(f"❌ 頭像說話失敗: {speak_response.message}")
+                
+                # 等待一下再進行下一個測試
+                if i < len(test_sentences):
+                    print("⏳ 等待 3 秒再進行下一個測試...")
+                    time.sleep(3)
+                    
+            except grpc.RpcError as e:
+                print(f"❌ gRPC 錯誤: {e.code()} - {e.details()}")
+        
+        # 3. 測試不同參數的說話功能
+        print(f"\n🎯 步驟 3: 測試不同語言的頭像說話")
+        
+        multilingual_tests = [
+            ("Bonjour, je suis votre avatar virtuel!", "fr"),
+            ("¡Hola! Soy tu avatar virtual.", "es"),
+            ("こんにちは、私はあなたのバーチャルアバターです。", "ja"),
+            ("Guten Tag! Ich bin Ihr virtueller Avatar.", "de"),
+            ("Ciao! Sono il tuo avatar virtuale.", "it")
+        ]
+        
+        for i, (text, language) in enumerate(multilingual_tests, 1):
+            print(f"\n🌍 多語言測試 {i}: '{text}' ({language})")
+            
+            speak_request = model_service_pb2.AvatarSpeakRequest(
+                text=text,
+                language=language
+            )
+            
+            try:
+                start_time = time.time()
+                speak_response = stub.AvatarSpeak(speak_request)
+                end_time = time.time()
+                
+                if speak_response.success:
+                    print(f"✅ 成功: {speak_response.message} ({end_time - start_time:.2f}s)")
+                else:
+                    print(f"❌ 失敗: {speak_response.message}")
+                    
+                # 短暫等待
+                time.sleep(2)
+                    
+            except grpc.RpcError as e:
+                print(f"❌ gRPC 錯誤: {e.code()} - {e.details()}")
+        
+        print(f"\n🎉 虛擬頭像測試完成！")
+        print("\n📋 測試結果總結:")
+        print("- 如果看到 '頭像說話成功' 訊息，表示服務正常運行")
+        print("- 請檢查虛擬攝像頭是否有視頻輸出")
+        print("- 請檢查虛擬麥克風是否有音頻輸出")
+        print("- 如果沒有輸出，請檢查虛擬音視頻設備是否正確安裝")
+        
+    except grpc.RpcError as e:
+        print(f"❌ 虛擬頭像測試失敗: {e.code()} - {e.details()}")
+    except Exception as e:
+        print(f"❌ 測試過程中發生錯誤: {e}")
+        import traceback
+        print(f"詳細錯誤: {traceback.format_exc()}")
+
+def run_virtual_avatar_interactive_test(stub):
+    """執行互動式虛擬頭像測試"""
+    print(f"\n🎮 互動式虛擬頭像測試")
+    print("-" * 30)
+    
+    # 預設檔案路徑
+    default_image = "wav2lip_sample/tom.jpg"
+    default_audio = "identify_sample/ta.wav"
+    
+    print(f"預設圖片: {default_image}")
+    print(f"預設音頻: {default_audio}")
+    
+    # 檢查檔案是否存在
+    import os
+    if not os.path.exists(default_image):
+        print(f"❌ 預設圖片不存在: {default_image}")
+        return
+    
+    if not os.path.exists(default_audio):
+        print(f"❌ 預設音頻不存在: {default_audio}")
+        return
+    
+    try:
+        # 初始化頭像
+        print("\n📁 正在初始化虛擬頭像...")
+        
+        with open(default_image, "rb") as f:
+            image_data = f.read()
+        with open(default_audio, "rb") as f:
+            audio_data = f.read()
+        
+        init_request = model_service_pb2.InitAvatarRequest(
+            image_data=image_data,
+            sample_audio_data=audio_data
+        )
+        
+        init_response = stub.InitAvatar(init_request)
+        
+        if not init_response.success:
+            print(f"❌ 頭像初始化失敗: {init_response.message}")
+            return
+        
+        print(f"✅ 頭像初始化成功: {init_response.message}")
+        
+        # 互動式對話
+        print(f"\n🗣️ 開始互動式對話（輸入 'quit' 退出）:")
+        
+        while True:
+            user_input = input("\n💬 請輸入要讓頭像說的話: ").strip()
+            
+            if user_input.lower() in ['quit', 'exit', '退出', 'q']:
+                print("👋 結束互動式測試")
+                break
+            
+            if not user_input:
+                print("⚠️ 請輸入有效文字")
+                continue
+            
+            # 簡單語言檢測（基於字符）
+            language = "zh-cn" if any('\u4e00' <= char <= '\u9fff' for char in user_input) else "en"
+            
+            print(f"🎯 檢測到語言: {language}")
+            print(f"⏳ 正在讓頭像說話...")
+            
+            speak_request = model_service_pb2.AvatarSpeakRequest(
+                text=user_input,
+                language=language
+            )
+            
+            try:
+                import time
+                start_time = time.time()
+                speak_response = stub.AvatarSpeak(speak_request)
+                end_time = time.time()
+                
+                if speak_response.success:
+                    print(f"✅ 頭像說話成功 ({end_time - start_time:.2f}s)")
+                    print("📺 請檢查虛擬攝像頭和麥克風輸出")
+                else:
+                    print(f"❌ 頭像說話失敗: {speak_response.message}")
+                    
+            except grpc.RpcError as e:
+                print(f"❌ gRPC 錯誤: {e.code()} - {e.details()}")
+            except KeyboardInterrupt:
+                print("\n👋 用戶中斷，結束測試")
+                break
+    
+    except Exception as e:
+        print(f"❌ 互動式測試錯誤: {e}")
+
+def check_virtual_avatar_prerequisites():
+    """檢查虛擬頭像的先決條件"""
+    print(f"\n🔍 檢查虛擬頭像先決條件:")
+    print("-" * 30)
+    
+    import os
+    
+    # 檢查測試檔案
+    test_files = {
+        "測試圖片": "wav2lip_sample/tom.jpg",
+        "測試音頻": "identify_sample/ta.wav"
+    }
+    
+    files_ok = True
+    for file_type, file_path in test_files.items():
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            print(f"✅ {file_type}: {file_path} ({file_size} bytes)")
+        else:
+            print(f"❌ {file_type}: {file_path} (不存在)")
+            files_ok = False
+    
+    # 檢查虛擬設備
+    print(f"\n🎵 檢查虛擬音頻設備:")
+    try:
+        import sounddevice as sd
+        devices = sd.query_devices()
+        virtual_audio_found = False
+        
+        for i, device in enumerate(devices):
+            if ('cable' in device['name'].lower() or 
+                'virtual' in device['name'].lower() or
+                'vb-audio' in device['name'].lower()):
+                print(f"✅ 虛擬音頻設備: {device['name']}")
+                virtual_audio_found = True
+        
+        if not virtual_audio_found:
+            print("❌ 未找到虛擬音頻設備")
+            print("💡 請安裝 VB-Cable 或類似軟體")
+    except Exception as e:
+        print(f"❌ 檢查音頻設備時出錯: {e}")
+    
+    print(f"\n📹 檢查虛擬攝像頭支援:")
+    try:
+        import pyvirtualcam
+        print("✅ PyVirtualCam 可用")
+        print("💡 請確保已安裝 OBS Virtual Camera 或類似軟體")
+    except ImportError:
+        print("❌ PyVirtualCam 不可用")
+        print("💡 請安裝: pip install pyvirtualcam")
+    
+    # 檢查其他依賴
+    print(f"\n📦 檢查必要套件:")
+    required_packages = [
+        ("OpenCV", "cv2"),
+        ("NumPy", "numpy"),
+        ("SoundFile", "soundfile"),
+        ("LibROSA", "librosa")
+    ]
+    
+    packages_ok = True
+    for name, module in required_packages:
+        try:
+            __import__(module)
+            print(f"✅ {name}")
+        except ImportError:
+            print(f"❌ {name}")
+            packages_ok = False
+    
+    # 總結
+    print(f"\n📋 先決條件檢查結果:")
+    if files_ok and packages_ok:
+        print("✅ 所有先決條件都已滿足，可以進行虛擬頭像測試")
+        return True
+    else:
+        print("❌ 存在缺失的先決條件，請先解決上述問題")
+        return False
+
 def main():
     # 連接到 gRPC 伺服器
     print("🔗 正在連接到 gRPC 伺服器...")
@@ -361,6 +666,33 @@ def main():
         print("🚀 開始測試所有服務功能")
         print("="*60)
 
+        # --- 檢查虛擬頭像先決條件 ---
+        print("\n🔍 先決條件檢查:")
+        print("-" * 30)
+        avatar_ready = check_virtual_avatar_prerequisites()
+
+        # --- 執行虛擬頭像測試 ---
+        if avatar_ready:
+            print("\n🎭 測試虛擬頭像服務:")
+            print("-" * 30)
+            
+            # 基本虛擬頭像測試
+            run_virtual_avatar_test(media_stub, "wav2lip_sample/tom.jpg", "identify_sample/ta.wav")
+            
+            # 詢問是否進行互動式測試
+            try:
+                user_choice = input("\n❓ 是否進行互動式頭像測試？(y/n): ").strip().lower()
+                if user_choice in ['y', 'yes', '是', 'Y']:
+                    run_virtual_avatar_interactive_test(media_stub)
+                else:
+                    print("⏭️ 跳過互動式測試")
+            except KeyboardInterrupt:
+                print("\n⏭️ 跳過互動式測試")
+        else:
+            print("⚠️ 跳過虛擬頭像測試（先決條件不滿足）")
+
+        return
+    
         # --- 執行 RAG 問答測試 ---
         print("\n📚 測試 RAG 問答服務:")
         print("-" * 30)
