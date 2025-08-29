@@ -1,9 +1,13 @@
+import os
+# 解決 OpenMP 衝突問題
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+os.environ['OMP_NUM_THREADS'] = '1'
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import cv2
-import os
 import sys
 
 # =================== 直接定義卷積層 ===================
@@ -353,6 +357,12 @@ class Wav2LipPytorch:
         """生成模型輸入數據"""
         img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
         
+        total_items = len(frames)
+        processed_items = 0
+        batch_count = 0
+        
+        print(f"📦 Datagen開始: 總共{total_items}個項目需要處理")
+        
         for i, (frame, mel, coord) in enumerate(zip(frames, mels, face_coords)):
             # 裁剪人臉區域 - 確保座標是整數
             x1, y1, x2, y2 = [int(c) for c in coord]
@@ -365,6 +375,11 @@ class Wav2LipPytorch:
             coords_batch.append(coord)
             
             if len(img_batch) >= self.wav2lip_batch_size:
+                batch_count += 1
+                processed_items += len(img_batch)
+                
+                print(f"📦 產生批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
+                
                 img_batch = np.asarray(img_batch)
                 mel_batch = np.asarray(mel_batch)
                 
@@ -378,7 +393,13 @@ class Wav2LipPytorch:
                 yield img_batch, mel_batch, frame_batch, coords_batch
                 img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
                 
+        # 處理剩餘的數據
         if len(img_batch) > 0:
+            batch_count += 1
+            processed_items += len(img_batch)
+            
+            print(f"📦 產生最終批次 {batch_count}: {len(img_batch)} 項目 (總進度: {processed_items}/{total_items})")
+            
             img_batch = np.asarray(img_batch)
             mel_batch = np.asarray(mel_batch)
             
@@ -389,6 +410,8 @@ class Wav2LipPytorch:
             mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
             
             yield img_batch, mel_batch, frame_batch, coords_batch
+            
+        print(f"📦 Datagen完成: 共處理{processed_items}/{total_items}個項目，{batch_count}個批次")
             
     def inference(self, image_path, audio_path, output_path):
         """執行 Wav2Lip 推理"""
@@ -413,27 +436,79 @@ class Wav2LipPytorch:
             wav, sr = librosa.load(audio_path, sr=16000)
             mel = librosa.feature.melspectrogram(y=wav, sr=16000, n_mels=80, fmax=8000)
             mel = np.log(mel + 1e-6)
-            print(f"✅ 使用 librosa 音訊處理成功，mel 形狀: {mel.shape}")
+            print(f"✅ 音訊處理成功，mel 形狀: {mel.shape}")
+            print(f"📊 音訊時長: {len(wav)/16000:.2f}秒, 採樣率: {sr}Hz")
             
             if np.isnan(mel.reshape(-1)).sum() > 0:
                 raise ValueError('音訊檔案中包含 NaN 值')
                 
         except Exception as e:
             print(f"❌ 音訊處理失敗: {e}")
-            raise # Re-raise the exception if librosa also fails
+            raise
             
+        # 改進的 mel chunks 提取 - 確保處理所有音訊數據
         mel_chunks = []
-        mel_idx_multiplier = 80./25. 
-        i = 0
-        while True:
-            start_idx = int(i * mel_idx_multiplier)
-            if start_idx + 16 < len(mel[0]):
-                mel_chunks.append(mel[:, start_idx : start_idx + 16])
-            else:
-                break
-            i += 1
+        
+        # 計算正確的mel步長：音訊8秒，採樣率16000，mel幀數251
+        # 每個mel幀對應的時間 = 音訊時長 / mel幀數 = 8.0 / 251
+        # 影片25fps，每幀時間 = 1/25 = 0.04秒
+        # 因此每個影片幀需要的mel幀數 = (1/25) / (8.0/251) ≈ 1.255
+        
+        total_mel_frames = mel.shape[1]
+        audio_duration = len(wav) / 16000  # 實際音訊時長
+        mel_frames_per_second = total_mel_frames / audio_duration  # 每秒mel幀數
+        video_fps = 25.0
+        mel_frames_per_video_frame = mel_frames_per_second / video_fps  # 每個影片幀需要多少mel幀
+        
+        print(f"📊 總mel幀數: {total_mel_frames}, 音訊時長: {audio_duration:.2f}秒")
+        print(f"📊 每秒mel幀數: {mel_frames_per_second:.2f}, 每影片幀mel幀數: {mel_frames_per_video_frame:.2f}")
+        
+        # 計算應該生成多少個影片幀來匹配音訊時長
+        expected_video_frames = int(audio_duration * video_fps)
+        print(f"📊 預期影片幀數: {expected_video_frames}")
+        
+        # 生成mel chunks，每個chunk包含16個mel幀
+        for i in range(expected_video_frames):
+            # 計算這個影片幀對應的mel幀位置
+            mel_start_pos = i * mel_frames_per_video_frame
+            start_idx = int(mel_start_pos)
+            end_idx = start_idx + 16
             
-        print(f"📊 音訊長度: {len(mel_chunks)} 幀")
+            if start_idx >= total_mel_frames:
+                # 如果超出了mel範圍，重複最後的mel chunk
+                if len(mel_chunks) > 0:
+                    mel_chunks.append(mel_chunks[-1])
+                else:
+                    # 創建一個全零的mel chunk
+                    mel_chunk = np.zeros((80, 16))
+                    mel_chunks.append(mel_chunk)
+                continue
+                
+            if end_idx <= total_mel_frames:
+                # 正常情況：有足夠的mel幀
+                mel_chunk = mel[:, start_idx:end_idx]
+            else:
+                # 不足16幀的情況：填充最後一幀
+                remaining_frames = total_mel_frames - start_idx
+                if remaining_frames > 0:
+                    mel_chunk = mel[:, start_idx:total_mel_frames]
+                    # 重複最後一幀來填充到16幀
+                    padding_needed = 16 - remaining_frames
+                    if padding_needed > 0:
+                        last_frame = mel_chunk[:, -1:]
+                        padding = np.tile(last_frame, (1, padding_needed))
+                        mel_chunk = np.concatenate([mel_chunk, padding], axis=1)
+                else:
+                    # 如果沒有剩餘幀，重複最後一個有效的mel chunk
+                    if len(mel_chunks) > 0:
+                        mel_chunk = mel_chunks[-1]
+                    else:
+                        mel_chunk = np.zeros((80, 16))
+                    
+            mel_chunks.append(mel_chunk)
+            
+        print(f"📊 生成的mel chunks數量: {len(mel_chunks)}")
+        print(f"📊 預期影片時長: {len(mel_chunks)/25:.2f}秒")
         
         # 擴展幀以匹配音訊長度
         full_frames = frames * len(mel_chunks)
@@ -457,7 +532,14 @@ class Wav2LipPytorch:
         out = cv2.VideoWriter(output_path, fourcc, 25, (frames[0].shape[1], frames[0].shape[0]))
         
         # 執行推理
+        total_processed = 0
+        batch_count = 0
+        
         for img_batch, mel_batch, frame_batch, coords_batch in self.datagen(full_frames, mel_chunks, face_coords):
+            batch_count += 1
+            batch_size = len(img_batch)
+            print(f"🔄 處理批次 {batch_count}, 批次大小: {batch_size}")
+            
             with torch.no_grad():
                 img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to(self.device)
                 mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to(self.device)
@@ -472,8 +554,18 @@ class Wav2LipPytorch:
                     
                     f[y1:y2, x1:x2] = p
                     out.write(f)
+                    total_processed += 1
                     
         out.release()
+        
         print(f"✅ 影片生成完成: {output_path}")
+        print(f"📊 總共處理: {total_processed} 幀")
+        print(f"📊 預期幀數: {len(mel_chunks)} 幀")
+        print(f"📊 實際影片時長: {total_processed/25:.2f}秒")
+        
+        # 驗證影片是否正確生成
+        if total_processed < len(mel_chunks):
+            print(f"⚠️ 警告: 處理的幀數({total_processed})少於預期({len(mel_chunks)})")
+            print("可能的原因: datagen方法未處理完所有數據")
         
         return output_path

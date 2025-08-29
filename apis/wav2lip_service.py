@@ -106,6 +106,7 @@ class Wav2LipServicer(model_service_pb2_grpc.MediaServiceServicer):
             for path in temp_files:
                 if os.path.exists(path):
                     try:
-                        os.remove(path)
+                        i=1
+                        # os.remove(path)
                     except Exception as e:
                         print(f"⚠️ 無法刪除臨時檔案 {path}: {e}")
