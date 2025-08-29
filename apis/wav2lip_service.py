@@ -45,45 +45,19 @@ class Wav2LipServicer(model_service_pb2_grpc.MediaServiceServicer):
 
             print("⏳ 開始 Wav2Lip PyTorch 推理...")
             
-            # 使用 PyTorch 模型進行推理
+            # 使用 PyTorch 模型進行推理（不包含音檔）
             result_video_path = self.wav2lip_model.inference(
                 image_path=temp_image_path,
                 audio_path=temp_audio_path,
-                output_path=output_video_path
+                output_path=output_video_path,
+                include_audio=False  # 明確設定為不包含音檔
             )
             
-            print("⏳ 使用 ffmpeg 合併音訊和影片...")
+            print("📹 生成無聲影片（不附加音檔）...")
             
-            # 檢查 ffmpeg 是否可用
-            try:
-                subprocess.run(['ffmpeg', '-version'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                ffmpeg_available = True
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                ffmpeg_available = False
-                print("⚠️ ffmpeg 不可用，返回無音訊影片")
-            
-            if ffmpeg_available:
-                # 使用 ffmpeg 合併音訊
-                command = [
-                    'ffmpeg', '-y',
-                    '-i', result_video_path,
-                    '-i', temp_audio_path,
-                    '-c:v', 'libx264',
-                    '-c:a', 'aac',
-                    '-strict', 'experimental',
-                    '-shortest',
-                    final_output_path
-                ]
-                
-                result = subprocess.run(command, capture_output=True, text=True)
-                if result.returncode == 0:
-                    output_path = final_output_path
-                    print("✅ ffmpeg 音訊合併成功")
-                else:
-                    print(f"⚠️ ffmpeg 合併失敗: {result.stderr}")
-                    output_path = result_video_path
-            else:
-                output_path = result_video_path
+            # 直接使用生成的無聲影片，不進行音訊合併
+            output_path = result_video_path
+            print("✅ 無聲影片生成完成")
 
             # 讀取最終影片資料
             with open(output_path, "rb") as f:

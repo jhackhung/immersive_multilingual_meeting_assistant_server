@@ -413,8 +413,15 @@ class Wav2LipPytorch:
             
         print(f"📦 Datagen完成: 共處理{processed_items}/{total_items}個項目，{batch_count}個批次")
             
-    def inference(self, image_path, audio_path, output_path):
-        """執行 Wav2Lip 推理"""
+    def inference(self, image_path, audio_path, output_path, include_audio=False):
+        """執行 Wav2Lip 推理
+        
+        Args:
+            image_path: 輸入圖片路徑
+            audio_path: 輸入音訊路徑
+            output_path: 輸出影片路徑
+            include_audio: 是否在最終影片中包含音訊 (預設為 False)
+        """
         if self.model is None:
             self.load_model()
             
@@ -558,7 +565,7 @@ class Wav2LipPytorch:
                     
         out.release()
         
-        print(f"✅ 影片生成完成: {output_path}")
+        print(f"✅ Wav2Lip 影片生成完成: {output_path}")
         print(f"📊 總共處理: {total_processed} 幀")
         print(f"📊 預期幀數: {len(mel_chunks)} 幀")
         print(f"📊 實際影片時長: {total_processed/25:.2f}秒")
@@ -568,4 +575,43 @@ class Wav2LipPytorch:
             print(f"⚠️ 警告: 處理的幀數({total_processed})少於預期({len(mel_chunks)})")
             print("可能的原因: datagen方法未處理完所有數據")
         
-        return output_path
+        # 根據參數決定是否添加音檔
+        final_output_path = output_path
+        
+        if include_audio:
+            print("🎵 添加音檔到影片...")
+            try:
+                import subprocess
+                # 檢查 ffmpeg 是否可用
+                subprocess.run(['ffmpeg', '-version'], stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL, check=True)
+                
+                # 創建帶音訊的最終輸出檔案
+                audio_output_path = output_path.replace('.mp4', '_with_audio.mp4')
+                
+                command = [
+                    'ffmpeg', '-y',
+                    '-i', output_path,      # 無聲影片
+                    '-i', audio_path,       # 原始音檔
+                    '-c:v', 'libx264',      # 影片編碼
+                    '-c:a', 'aac',          # 音訊編碼
+                    '-strict', 'experimental',
+                    '-shortest',            # 以較短的為準
+                    audio_output_path
+                ]
+                
+                result = subprocess.run(command, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    final_output_path = audio_output_path
+                    print("✅ 音檔添加成功")
+                else:
+                    print(f"⚠️ 音檔添加失敗: {result.stderr}")
+                    print("返回無聲影片")
+                    
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                print("⚠️ ffmpeg 不可用，返回無聲影片")
+        else:
+            print("📹 輸出無聲影片（不包含音檔）")
+        
+        return final_output_path
