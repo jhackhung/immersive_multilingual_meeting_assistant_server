@@ -85,10 +85,9 @@
                         <VerticalStackLayout Spacing="10">
                             <Label Text="🔄 翻譯結果" FontAttributes="Bold" />
                             <Editor x:Name="TranslatedTextEditor" Text="翻譯結果將顯示在這裡..." HeightRequest="100" AutoSize="Disabled"/>
-                                                        <HorizontalStackLayout Spacing="10">
+                            <HorizontalStackLayout Spacing="10">
                                 <Button x:Name="TranslateButton" Text="🔊 翻譯" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnTranslateClicked"/>
                                 <Button x:Name="SpeakButton" Text="🔊 播放" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnPlayTranslateAudio"/>
-                                <Button x:Name="LocalTtsButton" Text="🔊 本地播放" BackgroundColor="#10b981" TextColor="White" CornerRadius="6" Clicked="OnLocalTtsButtonClicked"/>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Border>
