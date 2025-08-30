@@ -1,5 +1,4 @@
-﻿using NAudio.Wave;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,121 +6,177 @@ using System.Threading.Tasks;
 
 namespace IMMA
 {
-    public class MicrophoneSegmenter
+    using NAudio.CoreAudioApi;
+    using NAudio.Wave;
+    using System;
+    using System.Diagnostics;
+    using System.IO;
+    using System.Reflection.PortableExecutable;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    // This class is identical to the one in your original code.
+    // It can be shared between SystemAudioSegmenter and MicrophoneAudioSegmenter.
+
+    public class MicrophoneAudioSegmenter
     {
         // --- Configuration ---
-        // The volume threshold for detecting speech. This is for 16-bit audio, which has a range
-        // from -32768 to 32767. A value of 500 is a good starting point for typical speech.
-        private const int SilenceThreshold = 500;
+        // The volume level to be considered silence. A good starting point is 0.02.
+        // This may need tuning depending on the microphone's sensitivity and environment noise.
+        private const float SilenceThreshold = 0.02f;
 
-        // The duration of silence (in seconds) that finalizes a speaking segment.
+        // The duration of silence (in seconds) that triggers a new segment.
         private const int SilenceDurationSeconds = 2;
 
+        // Maximum duration for a segment in seconds before forcing a new segment.
+        private const int MaxSegmentDurationSeconds = 20;
+
         // --- State Variables ---
-        private WaveInEvent? _waveSource;
+        private WasapiCapture? _capture; // Changed to WasapiCapture for microphone input
         private Segment? _currentSegment;
         private int _segmentCount = 0;
         private DateTime _lastAudioTime = DateTime.MinValue;
-        private bool _isSilent = true;
-        private readonly string _outputDirectory;
-        public event Action<WaveInEventArgs>? DataAvailable;
+        private bool _isSilent = false;
+        private string _outputDirectory;
         public event Action<Segment>? SegmentRecorded;
-        public readonly WaveFormat Format = new WaveFormat(16000, 1);
-        public MicrophoneSegmenter(string outputDirectory)
+        public event Action<WaveInEventArgs>? DataAvailable;
+        private WaveFileWriter? fullAudio;
+        public WaveFormat? Format => _capture?.WaveFormat;
+
+        public MicrophoneAudioSegmenter(string outputDirectory)
         {
             _outputDirectory = outputDirectory;
-            Directory.CreateDirectory(_outputDirectory); // Ensure the output directory exists
+            Directory.CreateDirectory(_outputDirectory); // Ensure the directory exists
         }
 
         public void StartCapture()
         {
-            Console.WriteLine("Starting to listen for speech...");
-            _waveSource = new WaveInEvent
-            {
-                DeviceNumber = 0, // Default microphone
-                WaveFormat =Format // 16kHz, 16-bit, Mono - common for speech recognition
-            };
+            Console.WriteLine("Starting microphone capture...");
+            // Initialize microphone capture using the default recording device
+            _capture = new WasapiCapture();
 
-            _waveSource.DataAvailable += OnDataAvailable;
-            _waveSource.StartRecording();
+            // Subscribe to the event that fires whenever new audio data is available
+            _capture.DataAvailable += OnDataAvailable;
 
-            Console.WriteLine("Listening... Speak into the microphone. Press Enter to stop.");
+            // Create a writer for the full, continuous audio stream.
+            // The WaveFormat is taken directly from the capture device.
+            fullAudio = new WaveFileWriter(Path.Combine(_outputDirectory, "full_mic_audio.wav"), _capture.WaveFormat);
+
+            // Start recording
+            _capture.StartRecording();
+
+            Console.WriteLine("Microphone capture started. Press Enter to stop.");
         }
 
-        public void Stop()
+        public void StopCapture()
         {
-            Console.WriteLine("Stopping listener...");
-            _waveSource?.StopRecording();
+            Console.WriteLine("Stopping microphone capture...");
+            // Stop recording
+            _capture?.StopRecording();
 
-            FinalizeCurrentSegment(); // Save any segment that was in progress
+            // Finalize the last segment if it exists
+            FinalizeCurrentSegment();
 
-            if (_waveSource != null)
+            // Clean up the full audio writer
+            fullAudio?.Flush();
+            fullAudio?.Close();
+            fullAudio?.Dispose();
+            fullAudio = null;
+
+            // Clean up capture resources
+            if (_capture != null)
             {
-                _waveSource.DataAvailable -= OnDataAvailable;
-                _waveSource.Dispose();
-                _waveSource = null;
+                _capture.DataAvailable -= OnDataAvailable;
+                _capture.Dispose();
+                _capture = null;
             }
-            Console.WriteLine("Listener stopped.");
+            Console.WriteLine("Microphone capture stopped.");
         }
 
         private void OnDataAvailable(object? sender, WaveInEventArgs e)
         {
             DataAvailable?.Invoke(e); // Notify any listeners that data is available
+            fullAudio?.Write(e.Buffer, 0, e.BytesRecorded);
 
-            bool soundDetected = false;
-            // Iterate through the buffer of 16-bit audio samples
-            for (int i = 0; i < e.BytesRecorded; i += 2)
+            var buffer = e.Buffer;
+            int bytesRecorded = e.BytesRecorded;
+            bool isCurrentlySilent = true;
+
+            // Create a WaveBuffer to easily iterate over audio samples.
+            // WasapiCapture typically provides 32-bit float samples, which is what this loop expects.
+            var waveBuffer = new WaveBuffer(buffer);
+            for (int i = 0; i < bytesRecorded / 4; i++)
             {
-                // Convert two bytes to a 16-bit sample
-                short sample = (short)((e.Buffer[i + 1] << 8) | e.Buffer[i]);
-                // Check if the amplitude of the sample is above our threshold
-                if (Math.Abs(sample) > SilenceThreshold)
+                // The absolute value of the sample's amplitude
+                float sampleAmplitude = Math.Abs(waveBuffer.FloatBuffer[i]);
+                if (sampleAmplitude > SilenceThreshold)
                 {
-                    soundDetected = true;
-                    break;
+                    isCurrentlySilent = false;
+                    break; // Exit early if sound is detected
                 }
             }
 
-            // Write the audio data to the current segment file
-            _currentSegment?.Writer.Write(e.Buffer, 0, e.BytesRecorded);
-
-            if (soundDetected)
+            // Check if current segment has exceeded max duration
+            if (_currentSegment != null && (DateTime.Now - _currentSegment.StartTime).TotalSeconds >= MaxSegmentDurationSeconds)
             {
-                // If sound is detected, start a new segment if we aren't already recording one
-                if (_isSilent)
+                Console.WriteLine($"Maximum segment duration of {MaxSegmentDurationSeconds} seconds reached, finalizing segment.");
+                FinalizeCurrentSegment();
+            }
+
+            if (!isCurrentlySilent)
+            {
+                // If audio is detected, start a new segment if we were previously silent or have no writer
+                if (_currentSegment == null)
                 {
-                    _isSilent = false;
                     StartNewSegment();
                 }
+
+                // Write the audio data to the current segment file
+                _currentSegment?.Writer.Write(buffer, 0, bytesRecorded);
                 _lastAudioTime = DateTime.Now; // Update the time we last heard sound
+                _isSilent = false;
             }
-            else if (!_isSilent && (DateTime.Now - _lastAudioTime).TotalSeconds >= SilenceDurationSeconds)
+            else // We detected only silence in this buffer
             {
-                // If we are recording and silence has lasted long enough, end the segment
-                _isSilent = true;
-                Console.WriteLine("Silence detected, finalizing segment.");
-                FinalizeCurrentSegment();
+                // If we are currently recording and the silence has lasted long enough, end the segment
+                if (!_isSilent && _currentSegment != null && (DateTime.Now - _lastAudioTime).TotalSeconds >= SilenceDurationSeconds)
+                {
+                    Console.WriteLine("Silence detected, finalizing segment.");
+                    FinalizeCurrentSegment();
+                    _isSilent = true;
+                }
             }
         }
 
         private void StartNewSegment()
         {
+            // Guard against starting a segment if capture isn't active
+            if (_capture == null) return;
+
             _segmentCount++;
-            string segmentPath = Path.Combine(_outputDirectory, $"speech_{_segmentCount}.wav");
-            Console.WriteLine($"Sound detected, starting new segment: {segmentPath}");
-            _currentSegment = new() { Writer = new WaveFileWriter(segmentPath, _waveSource!.WaveFormat), StartTime = DateTime.Now };
+            string segmentPath = Path.Combine(_outputDirectory, $"mic_segment_{_segmentCount}.wav");
+            Console.WriteLine($"Starting new segment: {segmentPath}");
+
+            _currentSegment = new()
+            {
+                Writer = new WaveFileWriter(segmentPath, _capture.WaveFormat),
+                StartTime = DateTime.Now
+            };
         }
 
         private void FinalizeCurrentSegment()
         {
             if (_currentSegment != null)
             {
-                Console.WriteLine($"Finalizing segment: {_currentSegment.Writer.Filename}");
+                var filename = _currentSegment.Writer.Filename;
+                Console.WriteLine($"Finalizing segment: {filename}");
+                _currentSegment.EndTime = DateTime.Now;
+                _currentSegment.Writer.Flush();
+                _currentSegment.Writer.Close();
                 _currentSegment.Writer.Dispose();
                 SegmentRecorded?.Invoke(_currentSegment); // Notify listeners about the new segment
                 _currentSegment = null;
             }
         }
     }
-
 }

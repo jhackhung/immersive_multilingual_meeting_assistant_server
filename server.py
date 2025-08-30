@@ -1,5 +1,4 @@
 
-
 import asyncio
 import sys
 import os
@@ -34,6 +33,7 @@ from apis.speech_recognition_service import SpeechRecognitionServicer
 # from apis.rag_service import RAGService  # 已停用
 from apis.virtual_avatar_service import VirtualAvatarServicer
 from apis.stt_service import STTService
+import benchmark
 
 # 設定日誌
 logging.basicConfig(level=logging.DEBUG)
@@ -84,7 +84,8 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
     
     def Tts(self, request, context):
         logger.info("收到 TTS 請求")
-        return self.tts_servicer.Tts(request, context)
+        result = self.tts_servicer.Tts(request, context)
+        return result
     
     def Wav2Lip(self, request, context):
         logger.info("收到 Wav2Lip 請求")
@@ -274,6 +275,32 @@ class MediaServicer(model_service_pb2_grpc.MediaServiceServicer):
                 success=False,
                 message="虛擬頭像服務未啟用"
             )
+    
+    def NPUStart(self, request, context):
+        """啟動 NPU 效能測試"""
+        logger.info("收到 NPUStart 請求")
+        try:
+            benchmark.start_benchmark()
+            logger.info("NPU 效能測試已啟動")
+            return model_service_pb2.Null()
+        except Exception as e:
+            logger.error(f"NPU 效能測試啟動失敗: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"NPU 效能測試啟動失敗: {str(e)}")
+            return model_service_pb2.Null()
+    
+    def NPUStop(self, request, context):
+        """停止 NPU 效能測試"""
+        logger.info("收到 NPUStop 請求")
+        try:
+            benchmark.stop_benchmark()
+            logger.info("NPU 效能測試已停止")
+            return model_service_pb2.Null()
+        except Exception as e:
+            logger.error(f"NPU 效能測試停止失敗: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"NPU 效能測試停止失敗: {str(e)}")
+            return model_service_pb2.Null()
 
 class SpeakerAnnoteServicer:
     """語者辨識服務的包裝器"""

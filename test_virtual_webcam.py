@@ -4,7 +4,7 @@ import pyvirtualcam
 import os
 
 # Path to the video file
-video_path = r"D:\test.webm"
+video_path = r"D:\test.mp4"
 
 # Check if the video file exists
 if not os.path.exists(video_path):

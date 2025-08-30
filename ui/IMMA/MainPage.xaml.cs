@@ -38,19 +38,17 @@ namespace IMMA
     {
         private readonly List<TranscriptEntry> Transcripts = [];
         private readonly SystemAudioSegmenter SystemAudio;
-        private readonly MicrophoneSegmenter Microphone;
+        private readonly MicrophoneAudioSegmenter Microphone;
         const string SystenSegmentsDirectory = "sys_segments";
         const string MicrpohneSegmentsDirectory = "mic_segments";
         Queue<STTTask> speechRecognitionRequests = new();
         MediaService.MediaServiceClient Client;
-        TranslatorService.TranslatorServiceClient Translator;
         DateTime MeetingStartTime;
         GenerativeModel chatModel;
         GoogleAi googleAI;
         public MainPage()
         {
             Client = new MediaService.MediaServiceClient(GrpcChannel.ForAddress("http://127.0.0.1:50051"));
-            Translator = new TranslatorService.TranslatorServiceClient(GrpcChannel.ForAddress("http://127.0.0.1:50051"));
 
             // 1) Initialize your AI instance (GoogleAi) with credentials or environment variables
             googleAI = new GoogleAi(Environment.GetEnvironmentVariable("GEMINI_API_KEY"));
@@ -87,7 +85,7 @@ namespace IMMA
 
 
 
-            Microphone = new MicrophoneSegmenter(SystenSegmentsDirectory);
+            Microphone = new(SystenSegmentsDirectory);
             if (Directory.Exists(MicrpohneSegmentsDirectory))
             {
                 Directory.Delete(MicrpohneSegmentsDirectory, true);
@@ -314,6 +312,32 @@ namespace IMMA
                     // Optional: Save the image to the app's local storage for persistence
                     // This would require additional code to save the file and load it on app startup
                 }
+
+                result = await FilePicker.Default.PickAsync(new PickOptions()
+                {
+                    PickerTitle = "Select Reference Audio",
+                });
+                if (result != null)
+                {
+                    using var stream = await result.OpenReadAsync();
+                    using var ms = new MemoryStream();
+                    await stream.CopyToAsync(ms);
+                    var initRequest = new InitAvatarRequest()
+                    {
+                        ImageData = ByteString.CopyFrom(imgData),
+                        SampleAudioData = ByteString.CopyFrom(ms.ToArray())
+                    };
+                    var response = await Client.InitAvatarAsync(initRequest);
+                    if (response?.Success == true)
+                    {
+                        await DisplayAlert("Success", "Avatar initialized successfully", "OK");
+                    }
+                    else
+                    {
+                        await DisplayAlert("Error", "Failed to initialize avatar", "OK");
+                    }
+                }
+
             }
             catch (Exception ex)
             {
@@ -448,7 +472,7 @@ namespace IMMA
         private void OnStopButtonClicked(object sender, EventArgs e)
         {
             SystemAudio.StopCapture();
-            Microphone.Stop();
+            Microphone.StopCapture();
             Microphone.StartCapture();
             DisableButton(StopButton);
             EnableButton(StartButton);
@@ -790,7 +814,7 @@ namespace IMMA
                 };
                 var result = await Client.SpeechRecognitionAsync(request);
 
-                SourceTextEditor.Text = string.Join("\n", result.TranscribedText);
+                TranslationTextEditor.Text = string.Join("\n", result.TranscribedText);
 
                 EnableButton(MicButton);
                 MicButton.Text = "🎤 Start Recording";
@@ -826,43 +850,101 @@ namespace IMMA
                 EnableButton(TranslateButton);
                 return;
             }
-            var translateResult = await Translator.TranslateAsync(new TranslateRequest()
+
+            try
             {
-                SourceLanguage = ToLangCode(SourceLangPicker.SelectedItem.ToString()),
-                TargetLanguage = ToLangCode(TargetLangPicker.SelectedItem.ToString()),
-                TextToTranslate = SourceTextEditor.Text
-            });
-            if (translateResult != null)
-            {
-                for (int i = 0; i < translateResult.TranslatedText.Length; i++)
+                string sourceLang = SourceLangPicker.SelectedItem?.ToString() ?? "";
+                string targetLang = TargetLangPicker.SelectedItem?.ToString() ?? "";
+                string textToTranslate = TranslationTextEditor.Text;
+
+                if (string.IsNullOrWhiteSpace(textToTranslate) || textToTranslate == "Waiting for voice input...")
                 {
-                    TranslatedTextEditor.Text = translateResult.TranslatedText.Substring(0, i);
-                    await Task.Delay(20);
+                    await DisplayAlert("Error", "Please enter text to translate", "OK");
+                    EnableButton(TranslateButton);
+                    return;
                 }
+                Client.NPUStart(new Null());
+                // Use Gemini for translation
+                var chat = chatModel.StartChat();
+                string prompt = $"Translate the following text from {sourceLang} to {targetLang}. Only return the translated text without any explanations or additional content:\n\n{textToTranslate}";
+                
+                var result = await chat.GenerateContentAsync(prompt);
+
+                if (result?.Text != null)
+                {
+                    // Animate the text appearing and overwrite the original text
+                    string translatedText = result.Text;
+                    TranslationTextEditor.Text = ""; // Clear first
+                    
+                    for (int i = 0; i <= translatedText.Length; i++)
+                    {
+                        TranslationTextEditor.Text = translatedText.Substring(0, i);
+                        await Task.Delay(20);
+                    }
+                }
+                else
+                {
+                    await DisplayAlert("Error", "Translation failed, please try again later", "OK");
+                }
+
+                Client.NPUStop(new Null());
             }
-            else
+            catch (Exception ex)
             {
-                await DisplayAlert("Error", "Translation failed, please try again later", "OK");
+                await DisplayAlert("Error", $"Translation error: {ex.Message}", "OK");
             }
+            
             EnableButton(TranslateButton);
         }
 
-        byte[] imgData;
-        private async void OnPlayTranslateAudio(object sender, EventArgs e)
+        byte[]? imgData;
+        private async void OnPlayAsAvatarClicked(object sender, EventArgs e)
         {
             DisableButton(SpeakButton);
-            using var fs = File.OpenRead("D:\\tts_sample.mp3");
-            var req = new TtsRequest() { Language = ToLangCode(TargetLangPicker.SelectedItem.ToString()), TextToSpeak = TranslatedTextEditor.Text, ReferenceAudio = ByteString.FromStream(fs) };
-            var ttsResult = await Client.TtsAsync(req);
-            using var ttsFs = File.Create("tts_result.wav");
-            ttsResult.GeneratedAudio.WriteTo(ttsFs);
-            ttsFs.Seek(0, SeekOrigin.Begin);
-            var lipReq = new Wav2LipRequest() { AudioData = ByteString.FromStream(ttsFs), ImageData = ByteString.FromStream(new MemoryStream(imgData)) };
-            var lipResult = await Client.Wav2LipAsync(lipReq);
-            using var lipFs = File.Create("lip_result.mp4");
-            lipResult.VideoData.WriteTo(lipFs);
-            EnableButton(SpeakButton);
+
+            string textToSpeak = TranslationTextEditor.Text;
+
+            if (string.IsNullOrWhiteSpace(textToSpeak) || textToSpeak == "Waiting for voice input...")
+            {
+                await DisplayAlert("Error", "No text to speak.", "OK");
+                EnableButton(SpeakButton);
+                return;
+            }
+
+            if (imgData == null)
+            {
+                await DisplayAlert("Error", "Please select an avatar image first.", "OK");
+                EnableButton(SpeakButton);
+                return;
+            }
+
+            try
+            {
+                Client.NPUStart(new Null());
+                var request = new AvatarSpeakRequest
+                {
+                    Text = textToSpeak,
+                    Language = ToLangCode(TargetLangPicker.SelectedItem?.ToString() ?? ""),
+                };
+
+                await Client.AvatarSpeakAsync(request);
+                Client.NPUStop(new Null());
+                await DisplayAlert("Success", "Avatar is speaking.", "OK");
+            }
+            catch (RpcException ex)
+            {
+                await DisplayAlert("Error", $"gRPC error: {ex.Status.Detail}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", $"An error occurred: {ex.Message}", "OK");
+            }
+            finally
+            {
+                EnableButton(SpeakButton);
+            }
         }
+
     }
 
     public class MeetingRecord

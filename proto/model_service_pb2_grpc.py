@@ -5,7 +5,7 @@ import warnings
 
 from . import model_service_pb2 as model__service__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.71.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -116,6 +116,16 @@ class MediaServiceStub(object):
                 request_serializer=model__service__pb2.Wav2LipRequest.SerializeToString,
                 response_deserializer=model__service__pb2.Wav2LipResponse.FromString,
                 _registered_method=True)
+        self.NPUStart = channel.unary_unary(
+                '/model.v1.MediaService/NPUStart',
+                request_serializer=model__service__pb2.Null.SerializeToString,
+                response_deserializer=model__service__pb2.Null.FromString,
+                _registered_method=True)
+        self.NPUStop = channel.unary_unary(
+                '/model.v1.MediaService/NPUStop',
+                request_serializer=model__service__pb2.Null.SerializeToString,
+                response_deserializer=model__service__pb2.Null.FromString,
+                _registered_method=True)
         self.Tts = channel.unary_unary(
                 '/model.v1.MediaService/Tts',
                 request_serializer=model__service__pb2.TtsRequest.SerializeToString,
@@ -169,6 +179,18 @@ class MediaServiceServicer(object):
     def Wav2Lip(self, request, context):
         """1. Wav2Lip: 根據音訊和圖片產生對嘴影片
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NPUStart(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NPUStop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -241,6 +263,16 @@ def add_MediaServiceServicer_to_server(servicer, server):
                     servicer.Wav2Lip,
                     request_deserializer=model__service__pb2.Wav2LipRequest.FromString,
                     response_serializer=model__service__pb2.Wav2LipResponse.SerializeToString,
+            ),
+            'NPUStart': grpc.unary_unary_rpc_method_handler(
+                    servicer.NPUStart,
+                    request_deserializer=model__service__pb2.Null.FromString,
+                    response_serializer=model__service__pb2.Null.SerializeToString,
+            ),
+            'NPUStop': grpc.unary_unary_rpc_method_handler(
+                    servicer.NPUStop,
+                    request_deserializer=model__service__pb2.Null.FromString,
+                    response_serializer=model__service__pb2.Null.SerializeToString,
             ),
             'Tts': grpc.unary_unary_rpc_method_handler(
                     servicer.Tts,
@@ -315,6 +347,60 @@ class MediaService(object):
             '/model.v1.MediaService/Wav2Lip',
             model__service__pb2.Wav2LipRequest.SerializeToString,
             model__service__pb2.Wav2LipResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NPUStart(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/model.v1.MediaService/NPUStart',
+            model__service__pb2.Null.SerializeToString,
+            model__service__pb2.Null.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NPUStop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/model.v1.MediaService/NPUStop',
+            model__service__pb2.Null.SerializeToString,
+            model__service__pb2.Null.FromString,
             options,
             channel_credentials,
             insecure,

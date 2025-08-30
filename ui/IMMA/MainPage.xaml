@@ -41,13 +41,37 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- Bidirectional Real-time Translation Panel -->
+            <!-- Virtual Avatar & Translation Panel -->
             <Border Grid.Row="1" Grid.Column="0" StrokeShape="RoundRectangle 15" Padding="25" BackgroundColor="White" StrokeThickness="1">
                 <VerticalStackLayout Spacing="20">
-                    <Label Text="🌐 Bidirectional Real-time Translation" FontSize="18" FontAttributes="Bold" TextColor="#2d3748" />
+                    <Label Text="🤖 Virtual Avatar &amp; Translation" FontSize="18" FontAttributes="Bold" TextColor="#2d3748" />
+
+                    <HorizontalStackLayout Spacing="15" VerticalOptions="Center">
+                        <VerticalStackLayout Spacing="5" WidthRequest="120">
+                            <ImageButton x:Name="AvatarImageButton" 
+                                        Source="avatar_placeholder.png" 
+                                        WidthRequest="120" 
+                                        HeightRequest="90" 
+                                        Aspect="AspectFill"
+                                         Margin="5"
+                                        CornerRadius="8"
+                                        BackgroundColor="Transparent"
+                                        Clicked="OnAvatarImageButtonClicked" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="8">
+                            <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                                <Label Text="🤖 Auto Reply:" VerticalOptions="Center"/>
+                                <Switch x:Name="AutoReplySwitch" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                                <Label Text="📹 Wav2Lip:" VerticalOptions="Center"/>
+                                <Switch x:Name="Wav2LipSwitch" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </HorizontalStackLayout>
 
                     <HorizontalStackLayout Spacing="15">
-                        <VerticalStackLayout Spacing="5" HorizontalOptions="FillAndExpand">
+                        <VerticalStackLayout Spacing="5" WidthRequest="150">
                             <Label Text="Source Language" />
                             <Picker x:Name="SourceLangPicker" SelectedIndex="0">
                                 <Picker.ItemsSource>
@@ -59,7 +83,7 @@
                                 </Picker.ItemsSource>
                             </Picker>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="5" HorizontalOptions="FillAndExpand">
+                        <VerticalStackLayout Spacing="5" WidthRequest="150">
                             <Label Text="Target Language" />
                             <Picker x:Name="TargetLangPicker" SelectedIndex="2">
                                 <Picker.ItemsSource>
@@ -73,21 +97,14 @@
                         </VerticalStackLayout>
                     </HorizontalStackLayout>
 
-                    <Border StrokeShape="RoundRectangle 12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150" StrokeThickness="1">
+                    <Border StrokeShape="RoundRectangle 12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="200" StrokeThickness="1">
                         <VerticalStackLayout Spacing="10">
-                            <Label Text="🎤 Original Speech" FontAttributes="Bold" />
-                            <Editor x:Name="SourceTextEditor" Text="Waiting for voice input..." HeightRequest="100" AutoSize="Disabled"/>
-                            <Button x:Name="MicButton" Text="🎤 Start Recording" BackgroundColor="#ef4444" TextColor="White" CornerRadius="6" Clicked="OnTranslateRecording"/>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <Border StrokeShape="RoundRectangle 12" Padding="15" BackgroundColor="#f8fafc" MinimumHeightRequest="150" StrokeThickness="1">
-                        <VerticalStackLayout Spacing="10">
-                            <Label Text="🔄 Translation Result" FontAttributes="Bold" />
-                            <Editor x:Name="TranslatedTextEditor" Text="Translation result will be displayed here..." HeightRequest="100" AutoSize="Disabled"/>
+                            <Label Text="🎤💬 Text Input / Translation" FontAttributes="Bold" />
+                            <Editor x:Name="TranslationTextEditor" Text="Waiting for voice input..." HeightRequest="120" AutoSize="Disabled"/>
                             <HorizontalStackLayout Spacing="10">
+                                <Button x:Name="MicButton" Text="🎤 Record" BackgroundColor="#ef4444" TextColor="White" CornerRadius="6" Clicked="OnTranslateRecording"/>
                                 <Button x:Name="TranslateButton" Text="🔊 Translate" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnTranslateClicked"/>
-                                <Button x:Name="SpeakButton" Text="🔊 Play" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="6" Clicked="OnPlayTranslateAudio"/>
+                                <Button x:Name="SpeakButton" Text="▶️ Speak" BackgroundColor="#10b981" TextColor="White" CornerRadius="6" Clicked="OnPlayAsAvatarClicked"/>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </Border>
@@ -140,7 +157,8 @@
                           TableRowFontFace="OpenSans"
                           TableRowFontSize="12"
                           ImageAspect="Fill"
-                          ParagraphSpacing="1.3">
+                          ParagraphSpacing="1.3"
+                                                          MarkdownText="">
                                         </idk:MarkdownView>
                                     </VerticalStackLayout>
                                 </ScrollView>
@@ -148,8 +166,8 @@
                         </Grid>
                     </Border>
                     <HorizontalStackLayout Spacing="10" >
-                        <Button x:Name="SpeakerRecognitionButton" Text="🎯 Identify Speaker" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSpeakerRecognitionClicked" />
-                        <Button x:Name="GenerateSummaryButton" Text="📝 Generate Summary" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSummaryButtonClicked"/>
+                        <Button x:Name="SpeakerRecognitionButton" Text="🎯 Identify" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSpeakerRecognitionClicked" />
+                        <Button x:Name="GenerateSummaryButton" Text="📝 Summarize" BackgroundColor="#8b5cf6" TextColor="White" CornerRadius="6" Clicked="OnSummaryButtonClicked"/>
                     </HorizontalStackLayout>
                     <!--<ScrollView HeightRequest="300">  
                         <VerticalStackLayout x:Name="TranscriptHistory">  
@@ -165,30 +183,6 @@
             <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" StrokeShape="RoundRectangle 15" Padding="20" BackgroundColor="White" StrokeThickness="1">
                 <FlexLayout JustifyContent="SpaceBetween" AlignItems="Center" Wrap="Wrap">
 
-                    <HorizontalStackLayout Spacing="15" VerticalOptions="Center">
-                        <VerticalStackLayout Spacing="5" WidthRequest="120">
-                            <ImageButton x:Name="AvatarImageButton" 
-                                        Source="avatar_placeholder.png" 
-                                        WidthRequest="120" 
-                                        HeightRequest="90" 
-                                        Aspect="AspectFill"
-                                         Margin="5"
-                                        CornerRadius="8"
-                                        BackgroundColor="Transparent"
-                                        Clicked="OnAvatarImageButtonClicked" />
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="8">
-                            <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
-                                <Label Text="🤖 Auto Reply:" VerticalOptions="Center"/>
-                                <Switch x:Name="AutoReplySwitch" />
-                            </HorizontalStackLayout>
-                            <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
-                                <Label Text="📹 Wav2Lip:" VerticalOptions="Center"/>
-                                <Switch x:Name="Wav2LipSwitch" />
-                            </HorizontalStackLayout>
-                        </VerticalStackLayout>
-                    </HorizontalStackLayout>
-
                     <HorizontalStackLayout Spacing="10">
                         <Button x:Name="StartButton" Text="🚀 Start Meeting" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnStartButtonClicked"/>
                         <!--<Button Text="⏸️ Pause" BackgroundColor="#10b981" TextColor="White" CornerRadius="8" />-->
@@ -196,8 +190,8 @@
                     </HorizontalStackLayout>
 
                     <HorizontalStackLayout Spacing="10">
-                        <Button Text="📤 Export Meeting Records" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnExportMeetingClicked"/>
-                        <Button Text="📥 Load Meeting Records" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnImportMeetingClicked" />
+                        <Button Text="📤 Export" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnExportMeetingClicked"/>
+                        <Button Text="📥 Import" BackgroundColor="#3b82f6" TextColor="White" CornerRadius="8" Clicked="OnImportMeetingClicked" />
                     </HorizontalStackLayout>
 
                 </FlexLayout>

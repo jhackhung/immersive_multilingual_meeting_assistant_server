@@ -5,12 +5,12 @@ import soundfile as sf
 
 # --- Configuration ---
 # Windows: 'CABLE Input (VB-Audio Virtual Cable)'
-VIRTUAL_MIC_NAME = 'CABLE Input'
+VIRTUAL_MIC_NAME = 'CABLE In'
 # macOS: 'BlackHole 2ch'
 # Linux: 'my_virtual_mic' or the name you chose
 
 # Path to the audio file
-AUDIO_FILE_PATH = r"D:\repos\immersive_multilingual_meeting_assistant_server\identify_sample\ta.wav"
+AUDIO_FILE_PATH = r"identify_sample\ta.wav"
 SAMPLE_RATE = 48000  # Samples per second (Hz)
 BLOCK_SIZE = 1024  # Number of samples per block
 

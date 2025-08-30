@@ -11,10 +11,15 @@ service TranslatorService {
   // 它接收 TranslateRequest，並回傳 TranslateResponse
   rpc Translate (TranslateRequest) returns (TranslateResponse) {}
 }
+message Null {
 
+}
 service MediaService {
   // 1. Wav2Lip: 根據音訊和圖片產生對嘴影片
   rpc Wav2Lip(Wav2LipRequest) returns (Wav2LipResponse) {}
+
+  rpc NPUStart(Null) returns (Null){}
+  rpc NPUStop(Null) returns (Null){}
 
   // 2. TTS (Text-to-Speech): 將文字轉換為語音
   rpc Tts(TtsRequest) returns (TtsResponse) {}
@@ -51,6 +56,9 @@ message TranslateRequest {
 message TranslateResponse {
   string translated_text = 1;
 }
+
+// Wav2Lip 請求
+
 
 // Wav2Lip 請求
 message Wav2LipRequest {

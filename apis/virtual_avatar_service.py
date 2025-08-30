@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 class VirtualMicrophoneManager:
     """虛擬麥克風管理器"""
     
-    def __init__(self, device_name='CABLE Input', sample_rate=48000, block_size=1024):
+    def __init__(self, device_name='CABLE In', sample_rate=48000, block_size=1024):
         self.device_name = device_name
         self.sample_rate = sample_rate
         self.block_size = block_size
@@ -105,6 +105,21 @@ class VirtualMicrophoneManager:
     
     def start_streaming(self):
         """開始音頻流"""
+        # 如果已經在流式傳輸，避免重複初始化
+        if self.is_streaming and self.stream and self.stream.active:
+            logger.info("虛擬麥克風已經在流式傳輸中，跳過重新啟動")
+            return True
+            
+        # 如果之前的流還在運行，先停止它
+        if self.stream:
+            try:
+                self.stream.stop()
+                self.stream.close()
+                self.stream = None
+                logger.info("停止了之前的虛擬麥克風流")
+            except Exception as e:
+                logger.warning(f"停止之前的流時出錯: {e}")
+        
         if self.device_id is None:
             if not self.initialize():
                 return False
@@ -202,8 +217,14 @@ class VirtualWebcamManager:
     def initialize(self):
         """初始化虛擬攝像頭"""
         try:
+            # 如果已經有攝像頭實例，先關閉它
             if self.camera is not None:
-                self.camera.close()
+                try:
+                    self.camera.close()
+                    logger.info("關閉了之前的虛擬攝像頭實例")
+                except Exception as e:
+                    logger.warning(f"關閉之前的攝像頭時出錯: {e}")
+                
             self.camera = pyvirtualcam.Camera(
                 width=self.width, 
                 height=self.height, 
@@ -217,6 +238,16 @@ class VirtualWebcamManager:
     
     def start_streaming(self):
         """開始視頻流"""
+        # 如果已經在流式傳輸，避免重複初始化
+        if self.is_streaming and self.streaming_thread and self.streaming_thread.is_alive():
+            logger.info("虛擬攝像頭已經在流式傳輸中，跳過重新啟動")
+            return True
+            
+        # 如果之前的流還在運行，先停止它
+        if self.is_streaming:
+            self.stop_streaming()
+            logger.info("停止了之前的虛擬攝像頭流")
+        
         if not self.initialize():
             return False
         
@@ -419,6 +450,10 @@ class VirtualAvatarService:
         self.avatar_image_path = None
         self.avatar_sample_audio_path = None
         
+        # 虛擬設備狀態
+        self.microphone_initialized = False
+        self.camera_initialized = False
+        
         # 初始化服務
         self._initialize_services()
     
@@ -494,21 +529,42 @@ class VirtualAvatarService:
             self.avatar_image = image_data
             self.avatar_sample_audio = sample_audio_data
             
-            # 啟動虛擬設備
-            self.microphone_initialized = self.virtual_mic.start_streaming()
+            # 啟動虛擬設備（避免重複初始化）
             if not self.microphone_initialized:
-                logger.warning("虛擬麥克風啟動失敗")
+                self.microphone_initialized = self.virtual_mic.start_streaming()
+                if not self.microphone_initialized:
+                    logger.warning("虛擬麥克風啟動失敗")
+                else:
+                    logger.info("虛擬麥克風已成功啟動")
+            else:
+                logger.info("虛擬麥克風已經在運行，跳過重新初始化")
 
-            self.camera_initialized = self.virtual_webcam.start_streaming()
+            # not working on arm devices
+            # if not self.camera_initialized:
+            #     self.camera_initialized = self.virtual_webcam.start_streaming()
+            #     if not self.camera_initialized:
+            #         logger.warning("虛擬攝像頭啟動失敗")
+            #     else:
+            #         logger.info("虛擬攝像頭已成功啟動")
+            # else:
+            #     logger.info("虛擬攝像頭已經在運行，跳過重新初始化")
             if not self.camera_initialized:
                 logger.warning("虛擬攝像頭啟動失敗")
 
-            # 設置默認頭像圖片
-            if not self.virtual_webcam.set_default_avatar_image(self.avatar_image_path):
-                logger.warning("設置默認頭像圖片失敗")
+            # 設置默認頭像圖片（只有在攝像頭成功啟動時才設置）
+            if self.camera_initialized:
+                if not self.virtual_webcam.set_default_avatar_image(self.avatar_image_path):
+                    logger.warning("設置默認頭像圖片失敗")
 
+            # 允許在虛擬攝像頭失敗時仍然初始化成功，只要基本數據驗證通過
+            # 至少需要有效的圖片和音頻數據
+            self.avatar_initialized = True  # 基本初始化成功
             
-            self.avatar_initialized = self.camera_initialized and self.microphone_initialized
+            if not self.microphone_initialized:
+                logger.warning("頭像初始化成功，但虛擬麥克風不可用")
+            if not self.camera_initialized:
+                logger.warning("頭像初始化成功，但虛擬攝像頭不可用")
+            
             return self.avatar_initialized
             
         except Exception as e:
@@ -534,6 +590,14 @@ class VirtualAvatarService:
         try:
             logger.info(f"頭像開始說話: '{text[:50]}...'")
             
+            # 檢查虛擬設備狀態
+            mic_available = hasattr(self, 'microphone_initialized') and self.microphone_initialized
+            cam_available = hasattr(self, 'camera_initialized') and self.camera_initialized
+            
+            if not mic_available and not cam_available:
+                logger.warning("虛擬麥克風和攝像頭都不可用，跳過說話功能")
+                return False
+            
             # 1. 使用 TTS 生成音頻
             logger.debug("生成 TTS 音頻...")
             tts_request = model_service_pb2.TtsRequest(
@@ -553,36 +617,44 @@ class VirtualAvatarService:
                 logger.error("TTS 生成失敗")
                 return False
             
-            # 2. 使用 Wav2Lip 生成對嘴視頻
-            logger.debug("生成 Wav2Lip 視頻...")
-            wav2lip_request = model_service_pb2.Wav2LipRequest(
-                audio_data=tts_response.generated_audio,
-                image_data=self.avatar_image
-            )
+            # 2. 如果攝像頭可用且 Wav2Lip 服務可用，使用 Wav2Lip 生成對嘴視頻
+            video_frames = []
+            if cam_available and self.wav2lip_service is not None:
+                try:
+                    logger.debug("生成 Wav2Lip 視頻...")
+                    wav2lip_request = model_service_pb2.Wav2LipRequest(
+                        audio_data=tts_response.generated_audio,
+                        image_data=self.avatar_image
+                    )
+                    
+                    wav2lip_response = self.wav2lip_service.Wav2Lip(wav2lip_request, MockContext())
+                    
+                    if not wav2lip_response.video_data:
+                        logger.warning("Wav2Lip 生成視頻失敗，將僅播放音頻")
+                    else:
+                        logger.debug("從 Wav2Lip 響應中提取視頻幀...")
+                        video_frames = self._extract_video_frames(wav2lip_response.video_data)
+                except Exception as e:
+                    logger.warning(f"Wav2Lip 處理失敗: {e}，將僅播放音頻")
+                    video_frames = []
+            else:
+                if not cam_available:
+                    logger.info("虛擬攝像頭不可用，跳過 Wav2Lip 視頻生成，僅播放音頻")
+                elif self.wav2lip_service is None:
+                    logger.info("Wav2Lip 服務不可用，跳過視頻生成，僅播放音頻")
             
-            wav2lip_response = self.wav2lip_service.Wav2Lip(wav2lip_request, MockContext())
-            
-            if not wav2lip_response.video_data:
-                logger.error("Wav2Lip 生成失敗")
-                return False
-            
-            # 3. 解析音頻和視頻
-            logger.debug("解析生成的媒體...")
-            
-            # 解析音頻
+            # 3. 解析音頻
+            logger.debug("解析生成的音頻...")
             audio_io = io.BytesIO(tts_response.generated_audio)
             audio_data, audio_sr = sf.read(audio_io)
             
-            # 解析視頻
-            video_frames = self._extract_video_frames(wav2lip_response.video_data)
+            # 4. 播放媒體
+            logger.debug("開始播放...")
+            if video_frames:
+                logger.info(f"準備播放 {len(video_frames)} 幀視頻，音頻長度: {len(audio_data)/audio_sr:.2f}秒")
+            else:
+                logger.info(f"準備播放音頻，長度: {len(audio_data)/audio_sr:.2f}秒")
             
-            if not video_frames:
-                logger.error("無法從生成的視頻中提取幀")
-                return False
-            
-            # 4. 同步播放音頻和視頻
-            logger.debug("開始同步播放...")
-            logger.info(f"準備播放 {len(video_frames)} 幀視頻，音頻長度: {len(audio_data)/audio_sr:.2f}秒")
             self._play_synced_media(audio_data, audio_sr, video_frames)
             
             logger.info("頭像說話完成")
@@ -681,35 +753,52 @@ class VirtualAvatarService:
         try:
             logger.info(f"開始播放媒體 - 音頻: {len(audio_data)/audio_sr:.2f}秒, 視頻: {len(video_frames)}幀")
             
+            # 檢查虛擬設備可用性
+            mic_available = (hasattr(self, 'microphone_initialized') and 
+                           self.microphone_initialized and 
+                           self.virtual_mic and 
+                           self.virtual_mic.is_streaming)
+            
+            cam_available = (hasattr(self, 'camera_initialized') and 
+                           self.camera_initialized and 
+                           self.virtual_webcam and 
+                           self.virtual_webcam.is_streaming)
+            
             # 將音頻加入播放隊列
-            if self.virtual_mic and self.virtual_mic.is_streaming:
+            if mic_available:
                 self.virtual_mic.queue_audio(audio_data, audio_sr)
                 logger.debug("音頻已加入播放隊列")
             else:
                 logger.warning("虛擬麥克風未啟動，跳過音頻播放")
             
             # 將視頻幀加入播放隊列
-            if self.virtual_webcam and self.virtual_webcam.is_streaming:
+            if cam_available and video_frames:
                 self.virtual_webcam.queue_video_frames(video_frames)
                 logger.debug("視頻幀已開始加入播放隊列")
                 
                 # 計算視頻播放時間並在後台等待視頻播放完畢後重置到默認頭像
-                if video_frames:
-                    video_duration = len(video_frames) / self.virtual_webcam.fps
-                    logger.info(f"預計視頻播放時間: {video_duration:.2f}秒")
-                    
-                    def reset_after_video():
-                        time.sleep(video_duration + 1.0)  # 額外等待1秒確保視頻播放完畢
-                        logger.info("視頻播放完畢，重置到默認頭像")
+                video_duration = len(video_frames) / self.virtual_webcam.fps
+                logger.info(f"預計視頻播放時間: {video_duration:.2f}秒")
+                
+                def reset_after_video():
+                    time.sleep(video_duration + 1.0)  # 額外等待1秒確保視頻播放完畢
+                    logger.info("視頻播放完畢，重置到默認頭像")
+                    if cam_available:  # 再次檢查攝像頭是否可用
                         self.virtual_webcam.reset_to_default_avatar()
-                    
-                    # 在背景線程中執行重置
-                    reset_thread = threading.Thread(target=reset_after_video, daemon=True)
-                    reset_thread.start()
+                
+                # 在背景線程中執行重置
+                reset_thread = threading.Thread(target=reset_after_video, daemon=True)
+                reset_thread.start()
             else:
-                logger.warning("虛擬攝像頭未啟動，跳過視頻播放")
+                if not cam_available:
+                    logger.warning("虛擬攝像頭未啟動，跳過視頻播放")
+                elif not video_frames:
+                    logger.info("沒有視頻幀需要播放")
             
-            logger.info("媒體播放啟動成功")
+            if mic_available or (cam_available and video_frames):
+                logger.info("媒體播放啟動成功")
+            else:
+                logger.warning("沒有可用的虛擬設備進行媒體播放")
             
         except Exception as e:
             logger.error(f"媒體播放失敗: {e}")
@@ -731,13 +820,17 @@ class VirtualAvatarService:
         
         if hasattr(self, 'virtual_mic') and self.virtual_mic:
             self.virtual_mic.stop_streaming()
-        
+            
         if hasattr(self, 'virtual_webcam') and self.virtual_webcam:
             self.virtual_webcam.stop_streaming()
         
         self._cleanup_temp_files()
         
+        # 重置初始化標誌
         self.avatar_initialized = False
+        self.microphone_initialized = False
+        self.camera_initialized = False
+        
         logger.info("虛擬頭像服務清理完成")
 
 # gRPC 服務實現
