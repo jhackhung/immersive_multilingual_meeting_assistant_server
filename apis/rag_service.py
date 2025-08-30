@@ -136,17 +136,3 @@ class RAGService:
 if __name__ == '__main__':
     rag_service = RAGService()
 
-    # Example: Add some documents
-    # test_docs = [
-    #     Document(page_content="會議記錄 2024-08-20: 專案 Alpha 的預算超支了 15%。Peter 建議我們需要重新評估供應商。"),
-    #     Document(page_content="技術規格書 v1.2: 使用者認證模組必須支援 OAuth 2.0。"),
-    #     Document(page_content="會議記錄 2024-08-21: Mary 報告說使用者回饋表示 UI 不夠直觀。我們決定下個 sprint 進行改進。")
-    # ]
-    # rag_service.add_documents(test_docs)
-
-    # Example: Query the database
-    # query_result = rag_service.query("預算出了什麼問題？")
-    # for doc in query_result:
-    #     print("--- Relevant Chunk ---")
-    #     print(doc.page_content)
-

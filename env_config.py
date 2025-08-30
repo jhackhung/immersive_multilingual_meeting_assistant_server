@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=UserWarning, module='torch')
 warnings.filterwarnings('ignore', category=UserWarning, module='librosa')
 
-print("✅ 環境配置已載入，解決了以下問題:")
+print("環境配置已載入，解決了以下問題:")
 print("   - OpenMP 重複載入衝突")
 print("   - 線程數限制優化")
 print("   - 抑制非關鍵警告")

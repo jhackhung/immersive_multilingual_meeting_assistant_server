@@ -31,10 +31,10 @@ def fix_grpc_imports(grpc_file_path):
         # Write the fixed content back
         with open(grpc_file_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
-        print(f"✅ Fixed imports in {grpc_file_path}")
+        print(f"Fixed imports in {grpc_file_path}")
         return True
     else:
-        print(f"ℹ️  No changes needed in {grpc_file_path}")
+        print(f"No changes needed in {grpc_file_path}")
         return False
 
 def main():
@@ -43,12 +43,12 @@ def main():
     # Path to the gRPC file
     grpc_file = "proto/model_service_pb2_grpc.py"
     
-    print("🔧 Fixing protobuf import issues...")
+    print("Fixing protobuf import issues...")
     
     if fix_grpc_imports(grpc_file):
-        print("✅ All proto imports fixed successfully!")
+        print("All proto imports fixed successfully!")
     else:
-        print("ℹ️  No fixes were needed.")
+        print("No fixes were needed.")
 
 if __name__ == "__main__":
     main()

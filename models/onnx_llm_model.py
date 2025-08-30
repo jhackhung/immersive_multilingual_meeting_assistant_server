@@ -37,7 +37,7 @@ def _download_and_unzip_model(url: str, model_path: Path):
     
     if not zip_path.exists():
         logger.info(f"模型不存在於 {model_path}，且暫存壓縮檔不存在。開始從網路下載...")
-        print(f"⬇️ 正在從 {url} 下載模型...")
+        print(f"⬇正在從 {url} 下載模型...")
         try:
             with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
                           desc=zip_path.name) as t:
@@ -52,7 +52,7 @@ def _download_and_unzip_model(url: str, model_path: Path):
         logger.info(f"發現已存在的暫存壓縮檔: {zip_path}。將直接進行解壓縮。")
 
     logger.info("開始解壓縮模型...")
-    print(f"📦 正在解壓縮檔案到 {model_path.parent}...")
+    print(f"正在解壓縮檔案到 {model_path.parent}...")
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(model_path.parent)
@@ -103,7 +103,7 @@ class ONNXLLMModel:
         if not self.cache_path.exists():
             _download_and_unzip_model(self.model_download_url, self.cache_path)
 
-        print(f"🤖 正在從本地路徑載入 ONNX LLM 模型: {self.cache_path}")
+        print(f"正在從本地路徑載入 ONNX LLM 模型: {self.cache_path}")
         
         # Step 2: Determine execution providers
         preferred_providers = []
@@ -120,7 +120,7 @@ class ONNXLLMModel:
             raise RuntimeError("沒有可用的 ONNX Runtime 執行提供者!")
         
         selected_provider = providers[0]
-        print(f"🔧 使用 ONNX Runtime 執行提供者: {selected_provider}")
+        print(f"使用 ONNX Runtime 執行提供者: {selected_provider}")
 
         # Step 3: Load the model from the local directory
         try:
@@ -134,7 +134,7 @@ class ONNXLLMModel:
                 self.cache_path, 
                 provider=selected_provider
             )
-            print("✅ 成功從快取載入 ONNX 模型。")
+            print("成功從快取載入 ONNX 模型。")
 
         except Exception as e:
             logger.error(f"從 {self.cache_path} 載入模型失敗: {e}")

@@ -45,12 +45,12 @@ def test_speech_recognition():
         response = stub.SpeechRecognition(request)
         
         if response.success:
-            logger.info("✅ 語音識別成功!")
+            logger.info("語音識別成功!")
             logger.info(f"轉錄文本: {response.transcribed_text}")
             logger.info(f"檢測語言: {response.detected_language}")
             logger.info(f"語言置信度: {response.language_confidence}")
         else:
-            logger.error("❌ 語音識別失敗")
+            logger.error("語音識別失敗")
         
         # 測試帶時間戳的語音識別
         logger.info("\n=== 測試帶時間戳的語音識別 ===")
@@ -64,7 +64,7 @@ def test_speech_recognition():
         response_with_timestamps = stub.SpeechRecognition(request_with_timestamps)
         
         if response_with_timestamps.success:
-            logger.info("✅ 帶時間戳語音識別成功!")
+            logger.info("帶時間戳語音識別成功!")
             logger.info(f"轉錄文本: {response_with_timestamps.transcribed_text}")
             logger.info(f"檢測語言: {response_with_timestamps.detected_language}")
             
@@ -75,7 +75,7 @@ def test_speech_recognition():
             else:
                 logger.info("無時間戳片段數據")
         else:
-            logger.error("❌ 帶時間戳語音識別失敗")
+            logger.error("帶時間戳語音識別失敗")
         
         # 測試指定語言的語音識別
         logger.info("\n=== 測試指定語言(英語)的語音識別 ===")
@@ -89,11 +89,11 @@ def test_speech_recognition():
         response_en = stub.SpeechRecognition(request_en)
         
         if response_en.success:
-            logger.info("✅ 英語語音識別成功!")
+            logger.info("英語語音識別成功!")
             logger.info(f"轉錄文本: {response_en.transcribed_text}")
             logger.info(f"檢測語言: {response_en.detected_language}")
         else:
-            logger.error("❌ 英語語音識別失敗")
+            logger.error("英語語音識別失敗")
     
     except grpc.RpcError as e:
         logger.error(f"gRPC 錯誤: {e.code()} - {e.details()}")
@@ -110,7 +110,7 @@ def test_service_availability():
     try:
         # 測試連接
         grpc.channel_ready_future(channel).result(timeout=10)
-        logger.info("✅ 成功連接到 gRPC 伺服器")
+        logger.info("成功連接到 gRPC 伺服器")
         
         # 測試服務是否可用
         stub = model_service_pb2_grpc.MediaServiceStub(channel)
@@ -125,22 +125,22 @@ def test_service_availability():
         
         try:
             response = stub.SpeechRecognition(test_request)
-            logger.info("✅ 語音識別服務可用")
+            logger.info("語音識別服務可用")
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.INTERNAL:
-                logger.info("✅ 語音識別服務可用（預期的內部錯誤，因為音訊數據為空）")
+                logger.info("語音識別服務可用（預期的內部錯誤，因為音訊數據為空）")
             else:
-                logger.error(f"❌ 語音識別服務不可用: {e.details()}")
+                logger.error(f"語音識別服務不可用: {e.details()}")
         
     except grpc.FutureTimeoutError:
-        logger.error("❌ 連接伺服器超時")
+        logger.error("連接伺服器超時")
     except Exception as e:
-        logger.error(f"❌ 連接失敗: {e}")
+        logger.error(f"連接失敗: {e}")
     finally:
         channel.close()
 
 if __name__ == "__main__":
-    logger.info("🎤 語音識別服務測試開始")
+    logger.info("語音識別服務測試開始")
     
     # 先測試服務可用性
     test_service_availability()
@@ -150,4 +150,4 @@ if __name__ == "__main__":
     # 然後測試實際功能
     test_speech_recognition()
     
-    logger.info("🎤 語音識別服務測試完成")
+    logger.info("語音識別服務測試完成")

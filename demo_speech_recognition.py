@@ -52,10 +52,10 @@ def test_standalone_speech_recognition():
     speech_recognizer = SpeechRecognitionServicer(model_size="base")
     
     if not speech_recognizer.initialize():
-        logger.error("❌ 語音識別服務初始化失敗")
+        logger.error("語音識別服務初始化失敗")
         return
     
-    logger.info("✅ 語音識別服務初始化成功")
+    logger.info("語音識別服務初始化成功")
     
     # 檢查支援的語言
     supported_languages = speech_recognizer.get_supported_languages()
@@ -90,11 +90,11 @@ def test_standalone_speech_recognition():
                 )
                 
                 if result["success"]:
-                    logger.info(f"✅ 轉錄成功")
+                    logger.info(f"轉錄成功")
                     logger.info(f"   轉錄文本: {result['transcribed_text']}")
                     logger.info(f"   檢測語言: {result['detected_language']}")
                 else:
-                    logger.error(f"❌ 轉錄失敗: {result.get('error', '未知錯誤')}")
+                    logger.error(f"轉錄失敗: {result.get('error', '未知錯誤')}")
                 
                 # 測試帶時間戳的轉錄
                 logger.info("執行帶時間戳的語音轉錄...")
@@ -105,15 +105,15 @@ def test_standalone_speech_recognition():
                 )
                 
                 if result_with_timestamps["success"] and result_with_timestamps["segments"]:
-                    logger.info(f"✅ 帶時間戳轉錄成功")
+                    logger.info(f"帶時間戳轉錄成功")
                     logger.info(f"   共 {len(result_with_timestamps['segments'])} 個片段:")
                     for i, segment in enumerate(result_with_timestamps["segments"]):
                         logger.info(f"     片段 {i+1}: [{segment['start_time']:.2f}s - {segment['end_time']:.2f}s] {segment['text']}")
                 
             except Exception as e:
-                logger.error(f"❌ 處理音訊文件 {audio_file} 時出錯: {e}")
+                logger.error(f"處理音訊文件 {audio_file} 時出錯: {e}")
         else:
-            logger.warning(f"⚠️ 音訊文件不存在: {audio_file}")
+            logger.warning(f"音訊文件不存在: {audio_file}")
     
     # 如果沒有現有音訊文件，嘗試生成測試音訊
     if not any(os.path.exists(f) for f in test_files):
@@ -133,7 +133,7 @@ def test_standalone_speech_recognition():
                 )
                 
                 if result["success"]:
-                    logger.info(f"✅ 轉錄成功")
+                    logger.info(f"轉錄成功")
                     logger.info(f"   原始文本: {original_text}")
                     logger.info(f"   轉錄文本: {result['transcribed_text']}")
                     logger.info(f"   檢測語言: {result['detected_language']}")
@@ -147,7 +147,7 @@ def test_standalone_speech_recognition():
                 os.unlink(test_audio_path)
                 
             except Exception as e:
-                logger.error(f"❌ 測試生成的音訊時出錯: {e}")
+                logger.error(f"測試生成的音訊時出錯: {e}")
 
 def demonstrate_features():
     """演示語音識別服務的各種特性"""
@@ -157,7 +157,7 @@ def demonstrate_features():
     # 顯示服務資訊
     speech_recognizer = SpeechRecognitionServicer()
     
-    logger.info("\n🎤 語音識別服務特性:")
+    logger.info("\n語音識別服務特性:")
     logger.info("   • 支援多種語言的語音轉文字")
     logger.info("   • 自動語言檢測")
     logger.info("   • 時間戳信息提取")
@@ -165,24 +165,24 @@ def demonstrate_features():
     logger.info("   • 高準確度的 OpenAI Whisper 模型")
     
     supported_languages = speech_recognizer.get_supported_languages()
-    logger.info(f"\n🌐 支援的語言 ({len(supported_languages)} 種):")
+    logger.info(f"\n支援的語言 ({len(supported_languages)} 種):")
     for code, name in supported_languages.items():
         logger.info(f"   • {code}: {name}")
     
-    logger.info("\n📋 使用場景:")
+    logger.info("\n使用場景:")
     logger.info("   • 會議記錄轉錄")
     logger.info("   • 多語言音訊內容分析")
     logger.info("   • 語音助手交互")
     logger.info("   • 音訊內容搜索與索引")
     logger.info("   • 語言學習輔助")
     
-    logger.info("\n🔧 API 使用方式:")
+    logger.info("\nAPI 使用方式:")
     logger.info("   • gRPC 端點: MediaService.SpeechRecognition")
     logger.info("   • 輸入: 音訊 bytes + 語言設定 + 選項")
     logger.info("   • 輸出: 轉錄文本 + 語言檢測 + 時間戳(可選)")
 
 if __name__ == "__main__":
-    logger.info("🎤 語音識別服務演示開始")
+    logger.info("語音識別服務演示開始")
     
     # 演示服務特性
     demonstrate_features()
@@ -192,5 +192,5 @@ if __name__ == "__main__":
     # 執行實際測試
     test_standalone_speech_recognition()
     
-    logger.info("\n🎤 語音識別服務演示完成")
-    logger.info("\n💡 提示: 可以通過 gRPC 客戶端調用 MediaService.SpeechRecognition 使用此服務")
+    logger.info("\n語音識別服務演示完成")
+    logger.info("\n提示: 可以通過 gRPC 客戶端調用 MediaService.SpeechRecognition 使用此服務")

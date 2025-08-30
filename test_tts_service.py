@@ -60,17 +60,17 @@ def run_tts_request(stub, test_name: str, language: str, text: str, output_path:
         if response and response.generated_audio:
             with open(output_path, "wb") as f:
                 f.write(response.generated_audio)
-            logging.info(f"✅ 測試成功: 音訊已儲存至 {output_path} (耗時: {duration:.2f} 秒)")
+            logging.info(f"測試成功: 音訊已儲存至 {output_path} (耗時: {duration:.2f} 秒)")
         else:
-            logging.warning(f"⚠️ 請求成功但未收到音訊資料。")
+            logging.warning(f"請求成功但未收到音訊資料。")
 
     except grpc.RpcError as e:
         # 處理 gRPC 錯誤，這對於錯誤案例測試是預期行為
-        logging.error(f"❌ 測試期間發生 gRPC 錯誤 (這是預期的錯誤案例嗎？)")
+        logging.error(f"測試期間發生 gRPC 錯誤 (這是預期的錯誤案例嗎？)")
         logging.error(f"    狀態碼: {e.code()}")
         logging.error(f"    詳細訊息: {e.details()}")
     except Exception as e:
-        logging.error(f"❌ 發生未知的例外狀況: {e}")
+        logging.error(f"發生未知的例外狀況: {e}")
 
 def main():
     """主執行函式"""
@@ -104,24 +104,24 @@ def main():
         try:
             with open(args.speaker_wav, "rb") as f:
                 reference_audio_bytes = f.read()
-            logging.info(f"🔊 已載入參考音訊: {args.speaker_wav}")
+            logging.info(f"已載入參考音訊: {args.speaker_wav}")
         except FileNotFoundError:
-            logging.error(f"❌ 找不到參考音訊檔案: {args.speaker_wav}，將僅測試預設聲音。")
+            logging.error(f"找不到參考音訊檔案: {args.speaker_wav}，將僅測試預設聲音。")
             
     # 建立 gRPC 連線
     try:
         channel = grpc.insecure_channel(args.server)
         grpc.channel_ready_future(channel).result(timeout=10)
         stub = model_service_pb2_grpc.MediaServiceStub(channel)
-        logging.info(f"✅ 成功連接到 gRPC 伺服器: {args.server}")
+        logging.info(f"成功連接到 gRPC 伺服器: {args.server}")
     except grpc.FutureTimeoutError:
-        logging.error(f"❌ 無法連接到 gRPC 伺服器: {args.server}。請檢查伺服器是否已啟動。")
+        logging.error(f"無法連接到 gRPC 伺服器: {args.server}。請檢查伺服器是否已啟動。")
         return
 
     # --- 場景 1: 使用指定的參考音訊進行多語言測試 ---
     if reference_audio_bytes:
         logging.info("\n" + "="*60)
-        logging.info("🚀 開始場景 1: 使用指定的參考音訊進行多語言合成")
+        logging.info("開始場景 1: 使用指定的參考音訊進行多語言合成")
         logging.info("="*60)
         for lang, text in TEST_CASES.items():
             output_filename = f"custom_speaker_{lang}.wav"
@@ -131,7 +131,7 @@ def main():
 
     # --- 場景 2: 使用伺服器預設聲音進行多語言測試 ---
     # logging.info("\n" + "="*60)
-    # logging.info("🚀 開始場景 2: 使用伺服器預設聲音進行多語言合成")
+    # logging.info("開始場景 2: 使用伺服器預設聲音進行多語言合成")
     # logging.info("="*60)
     # for lang, text in TEST_CASES.items():
     #     output_filename = f"default_speaker_{lang}.wav"
@@ -141,7 +141,7 @@ def main():
 
     # --- 場景 3: 邊界與錯誤條件測試 ---
     logging.info("\n" + "="*60)
-    logging.info("🚀 開始場景 3: 邊界與錯誤條件測試")
+    logging.info("開始場景 3: 邊界與錯誤條件測試")
     logging.info("="*60)
 
     # 3.1 錯誤請求: 空文字
@@ -164,17 +164,17 @@ def main():
             reference_audio=large_audio_bytes
         )
         stub.Tts(request, timeout=10)
-        logging.error("❌ 測試失敗: 伺服器未對過大的檔案返回錯誤。")
+        logging.error("測試失敗: 伺服器未對過大的檔案返回錯誤。")
     except grpc.RpcError as e:
-        logging.info(f"✅ 測試成功: 伺服器按預期返回了 gRPC 錯誤。")
+        logging.info(f"測試成功: 伺服器按預期返回了 gRPC 錯誤。")
         logging.info(f"    狀態碼: {e.code()}")
         logging.info(f"    詳細訊息: {e.details()}")
     except Exception as e:
-        logging.error(f"❌ 測試期間發生未知的例外狀況: {e}")
+        logging.error(f"測試期間發生未知的例外狀況: {e}")
 
     channel.close()
     logging.info("\n" + "="*60)
-    logging.info("✅ 所有測試執行完畢！")
+    logging.info("所有測試執行完畢！")
     
 if __name__ == '__main__':
     main()

@@ -365,12 +365,12 @@ class STTService:
                     model_paths = self._check_and_download_onnx_community_models()
                 
                 if not model_paths:
-                    logger.error("❌ 模型下載失敗")
+                    logger.error("模型下載失敗")
                     return False
                 
                 # 再次檢查文件是否存在
                 if not self._check_model_files():
-                    logger.error("❌ 模型文件下載後檢查失敗")
+                    logger.error("模型文件下載後檢查失敗")
                     return False
             
             logger.info(f"載入本地 ONNX Whisper 模型: {self.model_path}...")
@@ -405,7 +405,7 @@ class STTService:
             return True
             
         except Exception as e:
-            logger.error(f"❌ ONNX 模型載入失敗: {e}")
+            logger.error(f"ONNX 模型載入失敗: {e}")
             logger.error(f"詳細錯誤: ", exc_info=True)
             self.is_initialized = False
             return False
