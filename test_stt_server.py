@@ -101,24 +101,24 @@ class STTServerManager:
         初始化 STT 服務
         """
         try:
-            logger.info("🎙️ 正在初始化 STT 串流語音識別服務...")
+            logger.info("正在初始化 STT 串流語音識別服務...")
             
             # 創建 STT 服務實例
             self.stt_service = STTService()
             
-            # 💡 修正 1: 調用實例初始化方法
+            # 修正 1: 調用實例初始化方法
             self.stt_service.initialize()
             
-            # 💡 修正 2: 檢查實例變數，而不是舊的全域變數
+            # 修正 2: 檢查實例變數，而不是舊的全域變數
             if not self.stt_service._model_cache:
-                logger.error("❌ STT 服務初始化失敗：模型載入失敗")
+                logger.error("STT 服務初始化失敗：模型載入失敗")
                 return False
             
-            logger.info("✅ STT 服務初始化成功")
+            logger.info("STT 服務初始化成功")
             return True
             
         except Exception as e:
-            logger.error(f"❌ STT 服務初始化失敗: {e}")
+            logger.error(f"STT 服務初始化失敗: {e}")
             import traceback
             logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return False
@@ -151,24 +151,24 @@ class STTServerManager:
         listen_addr = f'localhost:{self.port}'
         self.server.add_insecure_port(listen_addr)
         
-        logger.info(f"🚀 STT gRPC 伺服器設定完成，監聽: {listen_addr}")
+        logger.info(f"STT gRPC 伺服器設定完成，監聽: {listen_addr}")
     
     async def start_server(self):
         """
         啟動伺服器
         """
         if not self.initialize_stt_service():
-            logger.error("💥 STT 服務初始化失敗，伺服器無法啟動")
+            logger.error("STT 服務初始化失敗，伺服器無法啟動")
             return
         
         self.setup_server()
         
         await self.server.start()
         
-        logger.info("🎯 STT 伺服器已成功啟動")
-        logger.info(f"📡 監聽埠: {self.port}")
-        logger.info("🎙️ 可用服務: StreamingRecognize (STT 串流語音識別)")
-        logger.info("💡 使用方式:")
+        logger.info("STT 伺服器已成功啟動")
+        logger.info(f"監聽埠: {self.port}")
+        logger.info("可用服務: StreamingRecognize (STT 串流語音識別)")
+        logger.info("使用方式:")
         logger.info(f"   - gRPC 端點: localhost:{self.port}")
         logger.info("   - 服務方法: MediaService.StreamingRecognize")
         logger.info("   - 支援串流雙向通訊")
@@ -176,9 +176,9 @@ class STTServerManager:
         try:
             await self.server.wait_for_termination()
         except KeyboardInterrupt:
-            logger.info("🛑 收到關閉信號，正在關閉伺服器...")
+            logger.info("收到關閉信號，正在關閉伺服器...")
             await self.server.stop(grace=5.0)
-            logger.info("✅ STT 伺服器已安全關閉")
+            logger.info("STT 伺服器已安全關閉")
 
 
 async def serve_stt(port=50052):
@@ -217,16 +217,16 @@ def main():
     logging.getLogger().setLevel(getattr(logging, args.log_level))
     
     logger.info("=" * 60)
-    logger.info("🎙️  STT 串流語音識別伺服器")
+    logger.info("STT 串流語音識別伺服器")
     logger.info("=" * 60)
-    logger.info(f"📡 監聽埠: {args.port}")
-    logger.info(f"📊 日誌等級: {args.log_level}")
-    logger.info("🔄 正在啟動...")
+    logger.info(f"監聽埠: {args.port}")
+    logger.info(f"日誌等級: {args.log_level}")
+    logger.info("正在啟動...")
     
     try:
         asyncio.run(serve_stt(port=args.port))
     except Exception as e:
-        logger.error(f"💥 伺服器啟動失敗: {e}")
+        logger.error(f"伺服器啟動失敗: {e}")
         import traceback
         logger.error(f"詳細錯誤: {traceback.format_exc()}")
 

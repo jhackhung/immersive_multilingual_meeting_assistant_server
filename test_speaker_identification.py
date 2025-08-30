@@ -12,23 +12,23 @@ def test_speaker_diarization_direct():
         # 檢查 .env 檔案
         env_file = ".env"
         if not os.path.exists(env_file):
-            print("❌ 找不到 .env 檔案")
+            print("找不到 .env 檔案")
             print("請創建 .env 檔案並設定 HUGGINGFACE_TOKEN")
             print("範例:")
             print("HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxxxxxxx")
             return False
         
         # 導入並初始化服務
-        print("🔧 初始化語者辨識服務...")
+        print("初始化語者辨識服務...")
         from apis.identify import OfficialRealtimeDiarizer
         
         # 初始化 diarizer
         diarizer = OfficialRealtimeDiarizer(clustering_threshold=0.7)
-        print("✅ 語者辨識服務初始化成功")
+        print("語者辨識服務初始化成功")
         
         # 顯示系統資訊
         info = diarizer.get_system_info()
-        print(f"\n📊 系統資訊:")
+        print(f"\n系統資訊:")
         for key, value in info.items():
             print(f"   {key}: {value}")
         
@@ -49,7 +49,7 @@ def test_speaker_diarization_direct():
                 break
         
         if audio_file is None:
-            print("❌ 找不到測試音訊檔案")
+            print("找不到測試音訊檔案")
             print("請提供以下任一檔案：")
             for file in test_files:
                 print(f"   - {file}")
@@ -59,21 +59,21 @@ def test_speaker_diarization_direct():
             create_test_audio()
             audio_file = "test_multi_speaker.wav"
         
-        print(f"📁 使用測試檔案: {audio_file}")
+        print(f"使用測試檔案: {audio_file}")
         
         # 檢查檔案資訊
         file_size = os.path.getsize(audio_file)
-        print(f"📊 檔案大小: {file_size} bytes ({file_size/1024/1024:.2f} MB)")
+        print(f"檔案大小: {file_size} bytes ({file_size/1024/1024:.2f} MB)")
         
         # 測試 1: 使用新的 process_file 方法
-        print(f"\n🔄 測試 1: 使用 process_file() 方法")
+        print(f"\n測試 1: 使用 process_file() 方法")
         print("-" * 40)
         
         try:
             segments = diarizer.process_file(audio_file)
             
             if segments:
-                print(f"✅ 語者辨識成功！發現 {len(segments)} 個語者片段:")
+                print(f"語者辨識成功！發現 {len(segments)} 個語者片段:")
                 print("-" * 50)
                 
                 # 統計語者
@@ -84,9 +84,9 @@ def test_speaker_diarization_direct():
                     speakers.add(speaker)
                     duration = end - start
                     total_duration += duration
-                    print(f"🎤 {speaker}: {start:6.2f}s - {end:6.2f}s (時長: {duration:5.2f}s)")
+                    print(f"{speaker}: {start:6.2f}s - {end:6.2f}s (時長: {duration:5.2f}s)")
                 
-                print(f"\n📊 統計:")
+                print(f"\n統計:")
                 print(f"   總語者數: {len(speakers)}")
                 print(f"   語者列表: {', '.join(sorted(speakers))}")
                 print(f"   總發言時間: {total_duration:.2f}s")
@@ -97,7 +97,7 @@ def test_speaker_diarization_direct():
                     duration = end - start
                     speaker_durations[speaker] = speaker_durations.get(speaker, 0) + duration
                 
-                print(f"\n⏱️ 各語者總時長:")
+                print(f"\n各語者總時長:")
                 for speaker in sorted(speaker_durations.keys()):
                     duration = speaker_durations[speaker]
                     percentage = (duration / total_duration) * 100 if total_duration > 0 else 0
@@ -105,7 +105,7 @@ def test_speaker_diarization_direct():
                 
                 # 如果是會議檔案，額外分析
                 if "meeting" in audio_file.lower():
-                    print(f"\n🏢 會議分析:")
+                    print(f"\n會議分析:")
                     if len(speakers) > 1:
                         avg_duration = total_duration / len(speakers)
                         print(f"   平均每人發言: {avg_duration:.2f}s")
@@ -118,20 +118,20 @@ def test_speaker_diarization_direct():
                     else:
                         print("   單人會議或音訊品質問題")
             else:
-                print("❌ 未檢測到語者片段")
-                print("💡 可能原因:")
+                print("未檢測到語者片段")
+                print("可能原因:")
                 print("   - 音訊品質差")
                 print("   - 只有一個語者")
                 print("   - 背景噪音過大")
                 print("   - 檔案格式不支援")
                 
         except Exception as e:
-            print(f"❌ process_file() 方法失敗: {e}")
+            print(f"process_file() 方法失敗: {e}")
             import traceback
             traceback.print_exc()
         
         # 測試 2: 使用 process_bytes 方法
-        print(f"\n🔄 測試 2: 使用 process_bytes() 方法")
+        print(f"\n測試 2: 使用 process_bytes() 方法")
         print("-" * 40)
         
         try:
@@ -139,12 +139,12 @@ def test_speaker_diarization_direct():
             with open(audio_file, 'rb') as f:
                 audio_data = f.read()
             
-            print(f"📊 讀取 {len(audio_data)} bytes 數據")
+            print(f"讀取 {len(audio_data)} bytes 數據")
             
             segments = diarizer.process_bytes(audio_data)
             
             if segments:
-                print(f"✅ bytes 處理成功！發現 {len(segments)} 個語者片段:")
+                print(f"bytes 處理成功！發現 {len(segments)} 個語者片段:")
                 
                 speakers = set()
                 for speaker, start, end in segments:
@@ -152,20 +152,20 @@ def test_speaker_diarization_direct():
                     duration = end - start
                     print(f"🎤 {speaker}: {start:6.2f}s - {end:6.2f}s (時長: {duration:5.2f}s)")
                 
-                print(f"\n📊 bytes 處理統計:")
+                print(f"\nbytes 處理統計:")
                 print(f"   總語者數: {len(speakers)}")
                 print(f"   語者列表: {', '.join(sorted(speakers))}")
             else:
-                print("❌ bytes 處理未檢測到語者片段")
+                print("bytes 處理未檢測到語者片段")
                 
         except Exception as e:
-            print(f"❌ process_bytes() 方法失敗: {e}")
+            print(f"process_bytes() 方法失敗: {e}")
             import traceback
             traceback.print_exc()
         
         # 測試 3: 傳統的分段處理（如果前面兩個方法都成功的話）
         if segments:  # 如果上面有成功檢測到語者
-            print(f"\n🔄 測試 3: 傳統分段處理模式")
+            print(f"\n測試 3: 傳統分段處理模式")
             print("-" * 40)
             
             try:
@@ -173,7 +173,7 @@ def test_speaker_diarization_direct():
                 audio = diarizer._load_audio_from_file(audio_file)
                 
                 if audio is not None:
-                    print(f"✅ 音訊載入成功")
+                    print(f"音訊載入成功")
                     print(f"   長度: {len(audio)} 採樣點")
                     print(f"   採樣率: 16000 Hz")
                     print(f"   時長: {len(audio)/16000:.2f} 秒")
@@ -203,35 +203,35 @@ def test_speaker_diarization_direct():
                     final_segments = diarizer.flush()
                     
                     if final_segments:
-                        print(f"✅ 分段處理完成！發現 {len(final_segments)} 個語者片段:")
+                        print(f"分段處理完成！發現 {len(final_segments)} 個語者片段:")
                         
                         speakers = set()
                         for speaker, start, end in final_segments:
                             speakers.add(speaker)
                             duration = end - start
-                            print(f"🎤 {speaker}: {start:6.2f}s - {end:6.2f}s (時長: {duration:5.2f}s)")
+                            print(f"{speaker}: {start:6.2f}s - {end:6.2f}s (時長: {duration:5.2f}s)")
                         
-                        print(f"\n📊 分段處理統計:")
+                        print(f"\n分段處理統計:")
                         print(f"   總語者數: {len(speakers)}")
                         print(f"   語者列表: {', '.join(sorted(speakers))}")
                     else:
-                        print("❌ 分段處理未檢測到語者片段")
+                        print("分段處理未檢測到語者片段")
                 else:
-                    print("❌ 無法載入音訊檔案進行分段處理")
+                    print("無法載入音訊檔案進行分段處理")
                     
             except Exception as e:
-                print(f"❌ 分段處理失敗: {e}")
-        
+                print(f"分段處理失敗: {e}")
+
         print("\n🎉 語者辨識測試完成！")
         return True
         
     except ImportError as e:
-        print(f"❌ 導入錯誤: {e}")
+        print(f"導入錯誤: {e}")
         print("請安裝必要套件:")
         print("pip install pyannote.audio torch torchaudio")
         return False
     except Exception as e:
-        print(f"❌ 測試錯誤: {e}")
+        print(f"測試錯誤: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -268,10 +268,10 @@ def create_test_audio():
         
         # 保存為 WAV 檔案
         sf.write("test_multi_speaker.wav", test_audio, sr)
-        print("✅ 測試音訊已創建: test_multi_speaker.wav")
+        print("測試音訊已創建: test_multi_speaker.wav")
         
     except Exception as e:
-        print(f"❌ 創建測試音訊失敗: {e}")
+        print(f"創建測試音訊失敗: {e}")
 
 def test_with_grpc():
     """透過 gRPC 測試語者辨識"""
@@ -284,13 +284,13 @@ def test_with_grpc():
         from proto import model_service_pb2_grpc
         
         # 連接到 gRPC 伺服器
-        print("🔗 連接到 gRPC 伺服器...")
+        print("連接到 gRPC 伺服器...")
         with grpc.insecure_channel('localhost:50051') as channel:
             grpc.channel_ready_future(channel).result(timeout=10)
             stub = model_service_pb2_grpc.MediaServiceStub(channel)
             
-            print("✅ 連接成功！")
-            
+            print("連接成功！")
+        
             # 找測試檔案
             test_files = [
                 "./identify_sample/meeting.mp4",
@@ -306,19 +306,19 @@ def test_with_grpc():
                     break
             
             if audio_file is None:
-                print("❌ 找不到測試音訊檔案")
+                print("找不到測試音訊檔案")
                 return False
             
-            print(f"📁 使用測試檔案: {audio_file}")
+            print(f"使用測試檔案: {audio_file}")
             
             # 讀取音訊檔案
             with open(audio_file, "rb") as f:
                 audio_data = f.read()
             
-            print(f"📊 音訊大小: {len(audio_data)} bytes")
+            print(f"音訊大小: {len(audio_data)} bytes")
             
             # 測試語者辨識
-            print("\n👥 測試語者辨識...")
+            print("\n測試語者辨識...")
             request = model_service_pb2.SpeakerAnnoteRequest(
                 audio_data=audio_data
             )
@@ -326,40 +326,40 @@ def test_with_grpc():
             response = stub.SpeakerAnnote(request)
             
             if response.success and response.segments:
-                print(f"✅ 成功！檢測到 {len(response.segments)} 個語者片段:")
+                print(f"成功！檢測到 {len(response.segments)} 個語者片段:")
                 
                 speakers = set()
                 for segment in response.segments:
                     speakers.add(segment.speaker_id)
                     duration = segment.end_time - segment.start_time
-                    print(f"🎤 {segment.speaker_id}: {segment.start_time:6.2f}s - {segment.end_time:6.2f}s (時長: {duration:5.2f}s)")
+                    print(f"{segment.speaker_id}: {segment.start_time:6.2f}s - {segment.end_time:6.2f}s (時長: {duration:5.2f}s)")
                 
-                print(f"\n📊 統計:")
+                print(f"\n統計:")
                 print(f"   總語者數: {len(speakers)}")
                 print(f"   語者列表: {', '.join(sorted(speakers))}")
             else:
-                print("❌ 語者辨識失敗或未檢測到語者")
+                print("語者辨識失敗或未檢測到語者")
             
-            print("\n🎉 gRPC 測試完成！")
+            print("\ngRPC 測試完成！")
             return True
                 
     except ImportError:
-        print("❌ gRPC 測試需要啟動 server")
+        print("gRPC 測試需要啟動 server")
         print("請先執行: python server.py")
         return False
     except Exception as e:
-        print(f"❌ gRPC 測試錯誤: {e}")
+        print(f"gRPC 測試錯誤: {e}")
         return False
 
 def check_environment():
     """檢查環境設定"""
-    print("🔍 檢查環境設定")
+    print("檢查環境設定")
     print("=" * 30)
     
     # 檢查 .env 檔案
     env_file = ".env"
     if os.path.exists(env_file):
-        print("✅ .env 檔案存在")
+        print(".env 檔案存在")
         
         # 檢查 token
         from dotenv import load_dotenv
@@ -367,12 +367,12 @@ def check_environment():
         token = os.getenv("HUGGINGFACE_TOKEN")
         
         if token:
-            print(f"✅ HUGGINGFACE_TOKEN 已設定 (長度: {len(token)})")
+            print(f"HUGGINGFACE_TOKEN 已設定 (長度: {len(token)})")
         else:
-            print("❌ HUGGINGFACE_TOKEN 未設定")
+            print("HUGGINGFACE_TOKEN 未設定")
             return False
     else:
-        print("❌ .env 檔案不存在")
+        print(".env 檔案不存在")
         print("請創建 .env 檔案並設定:")
         print("HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxxxxxxx")
         return False
@@ -386,24 +386,24 @@ def check_environment():
         "soundfile"
     ]
     
-    print("\n📦 檢查必要套件:")
+    print("\n檢查必要套件:")
     missing_packages = []
     
     for package in required_packages:
         try:
             __import__(package.replace(".", "_") if "." in package else package)
-            print(f"✅ {package}")
+            print(f"{package}")
         except ImportError:
-            print(f"❌ {package}")
+            print(f"{package}")
             missing_packages.append(package)
     
     if missing_packages:
-        print(f"\n❌ 缺少套件: {', '.join(missing_packages)}")
+        print(f"\n缺少套件: {', '.join(missing_packages)}")
         print("請安裝:")
         print(f"pip install {' '.join(missing_packages)}")
         return False
     
-    print("\n✅ 環境檢查通過！")
+    print("\n環境檢查通過！")
     return True
 
 if __name__ == "__main__":
@@ -419,7 +419,7 @@ if __name__ == "__main__":
             test_speaker_diarization_direct()
     else:
         # 預設流程
-        print("🚀 語者辨識測試程式 (增強版)")
+        print("語者辨識測試程式 (增強版)")
         print("=" * 40)
         
         # 先檢查環境
@@ -427,4 +427,4 @@ if __name__ == "__main__":
         #     print("\n" + "="*50)
         test_speaker_diarization_direct()
         # else:
-        #     print("\n❌ 環境檢查失敗，請先修復環境問題")
+        #     print("\n環境檢查失敗，請先修復環境問題")

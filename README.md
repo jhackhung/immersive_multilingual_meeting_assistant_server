@@ -136,6 +136,7 @@ python client.py
 ```
 
 ### API Usage Examples
+[API Reference](./documents/api-reference.md)
 
 ## License
 

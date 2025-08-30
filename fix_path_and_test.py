@@ -5,7 +5,7 @@ from pathlib import Path
 
 def fix_ffmpeg_path():
     """修復 FFmpeg PATH 設定"""
-    print("🔧 修復 FFmpeg PATH 設定")
+    print("修復 FFmpeg PATH 設定")
     print("=" * 30)
     
     ffmpeg_bin_path = "C:\\ffmpeg\\bin"
@@ -13,23 +13,23 @@ def fix_ffmpeg_path():
     
     # 1. 檢查檔案是否存在
     if not os.path.exists(ffmpeg_exe_path):
-        print(f"❌ FFmpeg 執行檔不存在: {ffmpeg_exe_path}")
+        print(f"FFmpeg 執行檔不存在: {ffmpeg_exe_path}")
         return False
     
-    print(f"✅ FFmpeg 執行檔存在: {ffmpeg_exe_path}")
+    print(f"FFmpeg 執行檔存在: {ffmpeg_exe_path}")
     
     # 2. 檢查當前 PATH
     current_path = os.environ.get('PATH', '')
     
     if ffmpeg_bin_path in current_path:
-        print("✅ FFmpeg 已在 PATH 中")
+        print("FFmpeg 已在 PATH 中")
     else:
-        print("❌ FFmpeg 不在 PATH 中，正在添加...")
+        print("FFmpeg 不在 PATH 中，正在添加...")
         
         # 臨時添加到當前會話
         new_path = f"{ffmpeg_bin_path};{current_path}"
         os.environ['PATH'] = new_path
-        print(f"✅ 已添加到當前會話 PATH")
+        print(f"已添加到當前會話 PATH")
     
     # 3. 測試 FFmpeg
     try:
@@ -38,18 +38,18 @@ def fix_ffmpeg_path():
         
         if result.returncode == 0:
             version_line = result.stdout.split('\n')[0]
-            print(f"✅ FFmpeg 測試成功: {version_line}")
+            print(f"FFmpeg 測試成功: {version_line}")
             return True
         else:
-            print(f"❌ FFmpeg 測試失敗: {result.stderr}")
+            print(f"FFmpeg 測試失敗: {result.stderr}")
             return False
     except Exception as e:
-        print(f"❌ FFmpeg 測試錯誤: {e}")
+        print(f"FFmpeg 測試錯誤: {e}")
         return False
 
 def permanently_add_to_path():
     """永久添加到系統 PATH"""
-    print("\n🔧 永久添加到系統 PATH")
+    print("\n永久添加到系統 PATH")
     print("=" * 30)
     
     try:
@@ -66,25 +66,25 @@ def permanently_add_to_path():
             
             # 檢查是否已存在
             if ffmpeg_bin_path in current_path:
-                print("✅ FFmpeg 已在系統 PATH 中")
+                print("FFmpeg 已在系統 PATH 中")
                 return True
             
             # 添加新路徑
             new_path = f"{current_path};{ffmpeg_bin_path}" if current_path else ffmpeg_bin_path
             winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
             
-            print("✅ 已永久添加到系統 PATH")
-            print("⚠️ 需要重新啟動 PowerShell 才能生效")
+            print("已永久添加到系統 PATH")
+            print("需要重新啟動 PowerShell 才能生效")
             return True
             
     except Exception as e:
-        print(f"❌ 無法修改系統 PATH: {e}")
-        print("💡 請手動添加 C:\\ffmpeg\\bin 到系統 PATH")
+        print(f"無法修改系統 PATH: {e}")
+        print("請手動添加 C:\\ffmpeg\\bin 到系統 PATH")
         return False
 
 def test_ffmpeg_directly():
     """直接測試 FFmpeg"""
-    print("\n🔍 直接測試 FFmpeg")
+    print("\n直接測試 FFmpeg")
     print("=" * 25)
     
     ffmpeg_exe = "C:\\ffmpeg\\bin\\ffmpeg.exe"
@@ -95,12 +95,12 @@ def test_ffmpeg_directly():
                               capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:
-            print("✅ FFmpeg 直接測試成功")
+            print("FFmpeg 直接測試成功")
             version_line = result.stdout.split('\n')[0]
             print(f"   版本: {version_line}")
             
             # 測試簡單轉換
-            print("\n🔄 測試音訊轉換功能...")
+            print("\n測試音訊轉換功能...")
             test_cmd = [
                 ffmpeg_exe, '-f', 'lavfi', '-i', 'testsrc=duration=1:size=320x240:rate=1',
                 '-f', 'wav', '-y', 'test_output.wav'
@@ -109,31 +109,31 @@ def test_ffmpeg_directly():
             result2 = subprocess.run(test_cmd, capture_output=True, text=True, timeout=15)
             
             if result2.returncode == 0:
-                print("✅ 音訊轉換功能正常")
+                print("音訊轉換功能正常")
                 # 清理測試檔案
                 if os.path.exists('test_output.wav'):
                     os.remove('test_output.wav')
                 return True
             else:
-                print(f"❌ 音訊轉換失敗: {result2.stderr}")
+                print(f"音訊轉換失敗: {result2.stderr}")
                 return False
         else:
-            print(f"❌ FFmpeg 直接測試失敗: {result.stderr}")
+            print(f"FFmpeg 直接測試失敗: {result.stderr}")
             return False
             
     except Exception as e:
-        print(f"❌ 直接測試錯誤: {e}")
+        print(f"直接測試錯誤: {e}")
         return False
 
 def update_identify_py():
     """更新 identify.py 以強制使用 FFmpeg"""
-    print("\n🔧 更新 identify.py 以強制使用 FFmpeg")
+    print("\n更新 identify.py 以強制使用 FFmpeg")
     print("=" * 45)
     
     identify_file = "apis/identify.py"
     
     if not os.path.exists(identify_file):
-        print(f"❌ 找不到 {identify_file}")
+        print(f"找不到 {identify_file}")
         return False
     
     # 讀取現有檔案
@@ -188,10 +188,10 @@ def update_identify_py():
         with open(identify_file, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print(f"✅ 已更新 {identify_file}")
+        print(f"已更新 {identify_file}")
         return True
     else:
-        print(f"❌ 無法找到 _check_ffmpeg 方法")
+        print(f"無法找到 _check_ffmpeg 方法")
         return False
 
 if __name__ == "__main__":
@@ -200,23 +200,23 @@ if __name__ == "__main__":
     
     # 1. 修復 PATH
     if fix_ffmpeg_path():
-        print("\n✅ FFmpeg PATH 修復成功")
+        print("\nFFmpeg PATH 修復成功")
         
         # 2. 永久添加到 PATH
         permanently_add_to_path()
         
         # 3. 直接測試
         if test_ffmpeg_directly():
-            print("\n✅ FFmpeg 功能正常")
+            print("\nFFmpeg 功能正常")
             
             # 4. 更新 identify.py
             if update_identify_py():
-                print("\n✅ identify.py 已更新")
-                print("\n🎉 修復完成！現在可以測試語者辨識了")
-                print("📋 執行: python test_speaker_identification.py")
+                print("\nidentify.py 已更新")
+                print("\n修復完成！現在可以測試語者辨識了")
+                print("執行: python test_speaker_identification.py")
             else:
-                print("\n⚠️ identify.py 更新失敗，但 FFmpeg 應該可用")
+                print("\nidentify.py 更新失敗，但 FFmpeg 應該可用")
         else:
-            print("\n❌ FFmpeg 功能測試失敗")
+            print("\nFFmpeg 功能測試失敗")
     else:
-        print("\n❌ FFmpeg PATH 修復失敗")
+        print("\nFFmpeg PATH 修復失敗")
