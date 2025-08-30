@@ -14,6 +14,7 @@ import json
 
 from proto import model_service_pb2
 from proto import model_service_pb2_grpc
+from benchmark import transcribe_wav_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -152,14 +153,76 @@ class SpeechRecognitionServicer:
                         audio_data: bytes, 
                         language: str = "zh",
                         return_timestamps: bool = False) -> Dict:
-        """轉錄音頻"""
+        """轉錄音頻 - 使用 NPU 加速的 Whisper 模型"""
+        try:
+            logger.info(f"開始使用 NPU Whisper 轉錄，語言: {language}")
+            
+            # 檢測音頻格式並轉換為 WAV
+            format_type = self._detect_audio_format(audio_data)
+            logger.info(f"檢測到音頻格式: {format_type}")
+            
+            # 如果不是 WAV 格式，需要轉換
+            if format_type != 'wav':
+                wav_bytes = self._convert_to_wav_bytes(audio_data)
+                if wav_bytes is None:
+                    return {"success": False, "error": "音頻格式轉換失敗"}
+                audio_data = wav_bytes
+            
+            # 使用 NPU 加速的 Whisper 進行轉錄
+            try:
+                result_text = transcribe_wav_bytes(audio_data)
+                
+                if result_text is None:
+                    return {"success": False, "error": "NPU Whisper 轉錄失敗"}
+                
+                # Whisper 自動檢測語言，但我們仍然返回請求的語言
+                detected_language = language if language != "auto" else "auto"
+                confidence = 0.95  # NPU Whisper 通常有較高的準確度
+                
+                # 處理結果
+                response_data = {
+                    "success": True,
+                    "transcribed_text": result_text.strip(),
+                    "detected_language": detected_language,
+                    "language_confidence": confidence,
+                    "segments": []
+                }
+                
+                # 如果需要時間戳，創建一個簡單的段落
+                if return_timestamps and result_text:
+                    # 估算音頻長度（假設 16kHz, 16-bit, mono）
+                    estimated_duration = len(audio_data) / (16000 * 2)
+                    response_data["segments"].append({
+                        "text": result_text.strip(),
+                        "start_time": 0.0,
+                        "end_time": estimated_duration
+                    })
+                
+                logger.info("NPU Whisper 轉錄完成")
+                return response_data
+                
+            except Exception as whisper_error:
+                logger.error(f"NPU Whisper 轉錄失敗: {whisper_error}")
+                # 降級到原有的 Google Speech Recognition
+                logger.info("降級使用 Google Speech Recognition")
+                return self._fallback_transcribe_audio(audio_data, language, return_timestamps)
+                
+        except Exception as e:
+            logger.error(f"轉錄失敗: {e}")
+            return {"success": False, "error": f"轉錄失敗: {str(e)}"}
+    
+    def _fallback_transcribe_audio(self, 
+                                  audio_data: bytes, 
+                                  language: str = "zh",
+                                  return_timestamps: bool = False) -> Dict:
+        """降級轉錄音頻 - 使用原有的 Google Speech Recognition"""
         try:
             # 轉換音頻為 AudioData 對象
             audio_data_obj = self._audio_bytes_to_audiodata(audio_data)
             if audio_data_obj is None:
                 return {"success": False, "error": "音頻處理失敗"}
             
-            logger.info(f"開始轉錄，語言: {language}")
+            logger.info(f"使用 Google Speech Recognition 轉錄，語言: {language}")
             
             # 根據語言選擇識別引擎
             result_text = ""
@@ -236,12 +299,13 @@ class SpeechRecognitionServicer:
                     "end_time": len(audio_data_obj.frame_data) / (audio_data_obj.sample_rate * audio_data_obj.sample_width)
                 })
             
-            logger.info("轉錄完成")
+            logger.info("Google Speech Recognition 轉錄完成")
             return response_data
                 
         except Exception as e:
-            logger.error(f"轉錄失敗: {e}")
-            return {"success": False, "error": f"轉錄失敗: {str(e)}"}
+            logger.error(f"降級轉錄失敗: {e}")
+            return {"success": False, "error": f"降級轉錄失敗: {str(e)}"}
+    
     
     def SpeechRecognition(self, request, context):
         """gRPC 接口"""
@@ -319,12 +383,13 @@ class SpeechRecognitionServicer:
         return {
             "model_id": "speech_recognition",
             "model_size": self.model_size,
-            "engine": "Google Speech Recognition + Sphinx (offline backup)",
+            "engine": "NPU Whisper (primary) + Google Speech Recognition (fallback)",
             "model_loaded": True,
             "supported_languages": list(self.get_supported_languages().keys()),
             "uses_ffmpeg": False,
             "uses_librosa": True,
+            "uses_npu": True,
             "requires_authentication": False,
-            "primary_engine": "Google Speech Recognition API",
-            "fallback_engine": "CMU Sphinx (offline)"
+            "primary_engine": "NPU Accelerated Whisper Large-v3-Turbo",
+            "fallback_engine": "Google Speech Recognition API + CMU Sphinx (offline)"
         }

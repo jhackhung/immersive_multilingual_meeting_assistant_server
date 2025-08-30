@@ -387,6 +387,7 @@ namespace IMMA
         private async void OnSpeakerRecognitionClicked(object sender, EventArgs e)
         {
             DisableButton(SpeakerRecognitionButton);
+            Client.NPUStart(new());
             try
             {
                 var annoteResult = await Client.SpeakerAnnoteAsync(new SpeakerAnnoteRequest()
@@ -467,6 +468,7 @@ namespace IMMA
                 await DisplayAlert("Error", $"Error during speaker identification: {ex.Message}", "OK");
             }
             EnableButton(SpeakerRecognitionButton);
+            Client.NPUStop(new());
         }
 
         private void OnStopButtonClicked(object sender, EventArgs e)
@@ -548,6 +550,7 @@ namespace IMMA
         private async void OnSummaryButtonClicked(object sender, EventArgs e)
         {
             DisableButton(GenerateSummaryButton);
+            Client.NPUStart(new Null());
             try
             {
                 var transcript = string.Join("\n", Transcripts.Select(t => $"{t.FormattedTimestamp} {t.SpeakerName}:\n {t.Content}"));
@@ -592,6 +595,7 @@ namespace IMMA
             {
                 await DisplayAlert("Error", "Unable to generate meeting summary:" + ex.Message, "OK");
             }
+            Client.NPUStop(new Null());
             EnableButton(GenerateSummaryButton);
         }
 
@@ -878,7 +882,7 @@ namespace IMMA
                     EnableButton(TranslateButton);
                     return;
                 }
-                Client.NPUStart(new Null());
+                // Client.NPUStart(new Null());
                 // Use Gemini for translation
                 var chat = chatModel.StartChat();
                 string prompt = $"Translate the following text from {sourceLang} to {targetLang}. Only return the translated text without any explanations or additional content:\n\n{textToTranslate}";
@@ -902,7 +906,7 @@ namespace IMMA
                     await DisplayAlert("Error", "Translation failed, please try again later", "OK");
                 }
 
-                Client.NPUStop(new Null());
+                // Client.NPUStop(new Null());
             }
             catch (Exception ex)
             {
@@ -935,7 +939,7 @@ namespace IMMA
 
             try
             {
-                Client.NPUStart(new Null());
+                // Client.NPUStart(new Null());
                 var request = new AvatarSpeakRequest
                 {
                     Text = textToSpeak,
@@ -943,7 +947,7 @@ namespace IMMA
                 };
 
                 await Client.AvatarSpeakAsync(request);
-                Client.NPUStop(new Null());
+                // Client.NPUStop(new Null());
                 await DisplayAlert("Success", "Avatar is speaking.", "OK");
             }
             catch (RpcException ex)

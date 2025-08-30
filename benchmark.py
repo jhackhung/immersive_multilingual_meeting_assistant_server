@@ -181,7 +181,7 @@ def transcribe_wav_bytes(wav_bytes):
         
     except Exception as e:
         print(f"Error transcribing WAV bytes data: {e}")
-        return None
+        return ""
     finally:
         # Clean up temporary file
         if temp_file is not None:

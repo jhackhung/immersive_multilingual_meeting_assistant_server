@@ -32,7 +32,7 @@ namespace IMMA
         private const int SilenceDurationSeconds = 2;
 
         // Maximum duration for a segment in seconds before forcing a new segment
-        private const int MaxSegmentDurationSeconds = 20;
+        private const int MaxSegmentDurationSeconds = 10;
 
         // --- State Variables ---
         private WasapiLoopbackCapture? _capture;
