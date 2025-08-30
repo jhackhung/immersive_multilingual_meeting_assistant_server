@@ -206,7 +206,7 @@ class STTService:
                 logger.warning(f"缺少模型文件: {file_path}")
                 return False
                 
-        logger.info("✅ 所有必要的模型文件都存在")
+        logger.info("所有必要的模型文件都存在")
         return True
     
     def _detect_audio_format(self, audio_bytes: bytes, chunk_count: int = 0) -> Tuple[int, int, int]:
@@ -401,7 +401,7 @@ class STTService:
             self.feature_extractor = WhisperFeatureExtractor.from_pretrained(processor_model_id)
             
             self.is_initialized = True
-            logger.info("✅ ONNX 模型載入成功。")
+            logger.info("ONNX 模型載入成功。")
             return True
             
         except Exception as e:

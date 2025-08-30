@@ -130,14 +130,14 @@ def main():
             time.sleep(1)
 
     # --- 場景 2: 使用伺服器預設聲音進行多語言測試 ---
-    # logging.info("\n" + "="*60)
-    # logging.info("開始場景 2: 使用伺服器預設聲音進行多語言合成")
-    # logging.info("="*60)
-    # for lang, text in TEST_CASES.items():
-    #     output_filename = f"default_speaker_{lang}.wav"
-    #     output_path = os.path.join(args.output_dir, output_filename)
-    #     run_tts_request(stub, "預設聲音合成", lang, text, output_path, None)
-    #     time.sleep(1)
+    logging.info("\n" + "="*60)
+    logging.info("開始場景 2: 使用伺服器預設聲音進行多語言合成")
+    logging.info("="*60)
+    for lang, text in TEST_CASES.items():
+        output_filename = f"default_speaker_{lang}.wav"
+        output_path = os.path.join(args.output_dir, output_filename)
+        run_tts_request(stub, "預設聲音合成", lang, text, output_path, None)
+        time.sleep(1)
 
     # --- 場景 3: 邊界與錯誤條件測試 ---
     logging.info("\n" + "="*60)

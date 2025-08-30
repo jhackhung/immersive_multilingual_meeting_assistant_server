@@ -32,7 +32,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         """
         初始化 TtsServicer - 修正版本
         """
-        logger.info("🚀 正在初始化 NPU 友好 TTS 服務...")
+        logger.info("正在初始化 NPU 友好 TTS 服務...")
         self.onnx_model_path = onnx_model_path
         self.default_speaker_wav_path = default_speaker_wav
         self.sample_rate = 22050
@@ -48,16 +48,16 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         logger.info(f"TTS 服務使用裝置: {self.device}")
 
         # --- 載入 XTTS-v2 模型 ---
-        logger.info("⏳ 正在載入 XTTS-v2 模型...")
+        logger.info("正在載入 XTTS-v2 模型...")
         tts_instance = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device)
         self.tts_model = tts_instance.synthesizer.tts_model
         
         # 獲取真實的 hop_length（修正點 3）
         self.hop_length = getattr(self.tts_model, "hop_length", 256)
-        logger.info(f"✅ XTTS-v2 模型載入成功，hop_length: {self.hop_length}")
+        logger.info(f"XTTS-v2 模型載入成功，hop_length: {self.hop_length}")
 
         # --- 載入優化後的 ONNX 聲碼器模型 (NPU 友好) ---
-        logger.info("⏳ 正在載入優化後的 ONNX 聲碼器...")
+        logger.info("正在載入優化後的 ONNX 聲碼器...")
         self.onnx_session, self.active_providers = self._build_ort_session(self.onnx_model_path)
         logger.info(f"ONNX 聲碼器載入成功，使用 EP: {self.active_providers}")
 
@@ -86,7 +86,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         self.fast_chunk_size = 100      # 更小的分塊用於短句
         self.fast_overlap = self.hop_length * 2  # 減少 overlap
         
-        logger.info("✅ NPU 友好 TTS 服務初始化完成。")
+        logger.info("NPU 友好 TTS 服務初始化完成。")
     
     def _build_ort_session(self, model_path: str) -> Tuple[ort.InferenceSession, list]:
         """建立 ONNX Runtime Session - 支援多 EP 回退"""
@@ -101,7 +101,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         custom_ep_order_str = os.environ.get("ONNX_EXECUTION_PROVIDERS")
         
         if custom_ep_order_str:
-            logger.info(f"🔧 使用環境變數自訂的 EP 順序: {custom_ep_order_str}")
+            logger.info(f"使用環境變數自訂的 EP 順序: {custom_ep_order_str}")
             ep_candidates = [ep.strip() for ep in custom_ep_order_str.split(',')]
         else:
             # 預設 EP 優先序
@@ -112,7 +112,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 "OpenVINOExecutionProvider",    # 4. Intel CPU/GPU
                 "CPUExecutionProvider",         # 5. CPU Fallback
             ]
-            logger.info("🔧 使用預設的 EP 順序 (可透過 ONNX_EXECUTION_PROVIDERS 環境變數覆寫)")
+            logger.info("使用預設的 EP 順序 (可透過 ONNX_EXECUTION_PROVIDERS 環境變數覆寫)")
 
         available_providers = ort.get_available_providers()
         # 過濾出當前環境可用的 EP
@@ -143,11 +143,11 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         # 存入 blob_cache（修正點 1）
         self._blob_cache[self._default_hash] = self._default_wav_bytes
         
-        logger.info(f"📁 預設參考音訊已載入記憶體，hash: {self._default_hash[:8]}...")
+        logger.info(f"預設參考音訊已載入記憶體，hash: {self._default_hash[:8]}...")
 
     def _warmup(self):
         """Warm-up 推論引擎"""
-        logger.info("🔥 正在進行 Warm-up...")
+        logger.info("正在進行 Warm-up...")
         try:
             # 修正 speaker embedding 維度 - 檢測實際維度
             dummy_mel = np.zeros((1, self.fixed_mel_chunk_length, 1024), dtype=np.float32)
@@ -164,7 +164,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             })
             logger.info("Warm-up 完成")
         except Exception as e:
-            logger.warning(f"⚠️ Warm-up 失敗，但不影響服務: {e}")
+            logger.warning(f"Warm-up 失敗，但不影響服務: {e}")
 
     @staticmethod
     def _hash_bytes(b: bytes) -> str:
@@ -212,7 +212,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 os.unlink(tmp_path)
                 
         except Exception as e:
-            logger.warning(f"⚠️ 解析參考音訊失敗: {e}")
+            logger.warning(f"解析參考音訊失敗: {e}")
             # 修正點 2: 避免無限遞迴
             if hash_key != self._default_hash:
                 return self._get_cached_conditioning(self._default_hash)
@@ -621,10 +621,10 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 hash_key = self._hash_bytes(request.reference_audio)
                 # 存入 blob_cache
                 self._blob_cache[hash_key] = request.reference_audio
-                logger.debug("🎤 使用了客戶端提供的參考音訊（已快取）")
+                logger.debug("使用了客戶端提供的參考音訊（已快取）")
             else:
                 hash_key = self._default_hash
-                logger.debug(f"🎤 使用預設參考音訊（已快取）")
+                logger.debug(f"使用預設參考音訊（已快取）")
             
             # 獲取快取的 conditioning（CPU tensor）
             gpt_cond_latent, speaker_embedding = self._get_cached_conditioning(hash_key)
@@ -711,9 +711,9 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                     audio_chunks.append(chunk_output)
                     
                     # 增加日誌以追蹤每個塊的進度
-                    logger.info(f"✅ 第 {i+1}/{num_chunks} 塊推論成功。梅爾長度: {current_chunk_length}, 音訊長度: {len(chunk_output)}")
+                    logger.info(f"第 {i+1}/{num_chunks} 塊推論成功。梅爾長度: {current_chunk_length}, 音訊長度: {len(chunk_output)}")
                 except Exception as e:
-                    logger.warning(f"⚠️ 第 {i+1} 塊推論失敗: {e}")
+                    logger.warning(f"第 {i+1} 塊推論失敗: {e}")
                     continue
 
             # --- Overlap-Add 拼接（消除接縫） ---
@@ -767,10 +767,10 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 hash_key = self._hash_bytes(request.reference_audio)
                 # 存入 blob_cache
                 self._blob_cache[hash_key] = request.reference_audio
-                logger.debug("🎤 使用了客戶端提供的參考音訊（已快取）")
+                logger.debug("使用了客戶端提供的參考音訊（已快取）")
             else:
                 hash_key = self._default_hash
-                logger.debug(f"🎤 使用預設參考音訊（已快取）")
+                logger.debug(f"使用預設參考音訊（已快取）")
             
             # 獲取快取的 conditioning（CPU tensor）
             gpt_cond_latent, speaker_embedding = self._get_cached_conditioning(hash_key)
@@ -782,7 +782,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             # --- 生成梅爾頻譜 ---
             text_to_speak = request.text_to_speak.strip()
             language = request.language or "en"
-            logger.info(f"📝 準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
+            logger.info(f"準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
             
             # 文字編碼與生成
             text_tokens = torch.IntTensor(
@@ -885,7 +885,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             wav_bytes = buffer.getvalue()
             
             end_time = time.time()
-            logger.info(f"✅ 標準模式完成，總耗時: {end_time - start_time:.2f} 秒")
+            logger.info(f"標準模式完成，總耗時: {end_time - start_time:.2f} 秒")
             
             return model_service_pb2.TtsResponse(generated_audio=wav_bytes)
             
