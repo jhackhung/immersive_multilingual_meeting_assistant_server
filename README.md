@@ -135,7 +135,12 @@ python server.py
 python client.py
 ```
 
-### API Usage Examples
+## Documentation
+
+For detailed technical information and usage examples, please refer to:
+
+- **[API Reference](documents/api-reference.md)** - Complete API usage guide with examples and best practices
+- **[Protocol Buffers Reference](documents/proto-reference.md)** - Detailed gRPC service definitions and message formats
 
 ## License
 
