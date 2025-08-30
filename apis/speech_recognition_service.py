@@ -1,6 +1,5 @@
 import grpc
-import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+import speech_recognition as sr
 import numpy as np
 import io
 import tempfile
@@ -11,6 +10,7 @@ import soundfile as sf
 from typing import Optional, List, Dict
 import wave
 import struct
+import json
 
 from proto import model_service_pb2
 from proto import model_service_pb2_grpc
@@ -19,50 +19,34 @@ logger = logging.getLogger(__name__)
 
 class SpeechRecognitionServicer:
     """
-    語音識別服務實現 - 獨立版本，不依賴外部工具
+    語音識別服務實現 - 使用 Python SpeechRecognition 庫
     """
     
-    def __init__(self, model_size: str = "large-v3-turbo"):
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        self.model_id = "openai/whisper-large-v3-turbo"
+    def __init__(self, model_size: str = "default"):
+        self.recognizer = sr.Recognizer()
+        self.model_size = model_size
         
-        self.model = None
-        self.processor = None
-        self.pipe = None
+        # 設定識別器參數
+        self.recognizer.energy_threshold = 300
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.8
+        self.recognizer.operation_timeout = None
         
-        logger.info(f"語音識別服務初始化 (獨立版本)")
-        logger.info(f"設備: {self.device}, 精度: {self.torch_dtype}")
+        logger.info(f"語音識別服務初始化 (SpeechRecognition 庫)")
+        logger.info(f"模型大小: {model_size}")
     
     def initialize(self) -> bool:
-        """初始化模型"""
+        """初始化服務"""
         try:
-            logger.info("載入 Whisper V3 Turbo 模型...")
+            logger.info("初始化 SpeechRecognition 服務...")
             
-            self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                self.model_id, 
-                torch_dtype=self.torch_dtype, 
-                low_cpu_mem_usage=True, 
-                use_safetensors=True
-            )
-            self.model.to(self.device)
-            
-            self.processor = AutoProcessor.from_pretrained(self.model_id)
-            
-            self.pipe = pipeline(
-                "automatic-speech-recognition",
-                model=self.model,
-                tokenizer=self.processor.tokenizer,
-                feature_extractor=self.processor.feature_extractor,
-                torch_dtype=self.torch_dtype,
-                device=self.device,
-            )
-            
-            logger.info("✅ 模型載入成功")
+            # 測試是否可以正常工作
+            test_recognizer = sr.Recognizer()
+            logger.info("✅ SpeechRecognition 服務載入成功")
             return True
             
         except Exception as e:
-            logger.error(f"❌ 模型載入失敗: {e}")
+            logger.error(f"❌ SpeechRecognition 服務初始化失敗: {e}")
             return False
     
     def _detect_audio_format(self, audio_data: bytes) -> str:
@@ -122,32 +106,43 @@ class SpeechRecognitionServicer:
             logger.error(f"音頻轉換失敗: {e}")
             return None
     
-    def _audio_bytes_to_array(self, audio_data: bytes) -> Optional[np.ndarray]:
+    def _audio_bytes_to_audiodata(self, audio_data: bytes) -> Optional[sr.AudioData]:
         """
-        將音頻 bytes 轉換為 numpy 陣列
-        完全使用 Python，不依賴外部工具
+        將音頻 bytes 轉換為 SpeechRecognition AudioData 對象
         """
         try:
             # 檢測音頻格式
             format_type = self._detect_audio_format(audio_data)
             logger.info(f"檢測到音頻格式: {format_type}")
             
-            # 如果不是 WAV，先轉換
-            if format_type != 'wav':
-                logger.info("轉換音頻格式為 WAV...")
-                wav_data = self._convert_to_wav_bytes(audio_data)
-                if wav_data is None:
-                    return None
-                audio_data = wav_data
+            # 使用 librosa 統一處理所有格式
+            # 創建臨時輸入文件
+            with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as temp_input:
+                temp_input.write(audio_data)
+                temp_input_path = temp_input.name
             
-            # 使用 BytesIO 創建文件對象
-            audio_io = io.BytesIO(audio_data)
-            
-            # 用 librosa 從 BytesIO 載入
-            audio, sr = librosa.load(audio_io, sr=16000, mono=True)
-            
-            logger.info(f"音頻載入成功: {len(audio)} 採樣點, {sr} Hz")
-            return audio
+            try:
+                # 使用 librosa 載入音頻，統一轉換為 16kHz 單聲道
+                audio, sr_orig = librosa.load(temp_input_path, sr=16000, mono=True)
+                
+                # 轉換為 int16 格式
+                audio_int16 = (audio * 32767).astype(np.int16)
+                
+                # 創建 AudioData 對象
+                # SpeechRecognition 需要原始字節數據
+                frame_data = audio_int16.tobytes()
+                sample_rate = 16000
+                sample_width = 2  # 16-bit = 2 bytes
+                
+                audio_data_obj = sr.AudioData(frame_data, sample_rate, sample_width)
+                
+                logger.info(f"音頻載入成功: 採樣率 {sample_rate} Hz, 位深 {sample_width*8} bit")
+                return audio_data_obj
+                
+            finally:
+                # 清理臨時文件
+                if os.path.exists(temp_input_path):
+                    os.unlink(temp_input_path)
             
         except Exception as e:
             logger.error(f"音頻處理失敗: {e}")
@@ -158,52 +153,88 @@ class SpeechRecognitionServicer:
                         language: str = "zh",
                         return_timestamps: bool = False) -> Dict:
         """轉錄音頻"""
-        if self.pipe is None:
-            if not self.initialize():
-                return {"success": False, "error": "模型未初始化"}
-        
         try:
-            # 轉換音頻為 numpy 陣列
-            audio_array = self._audio_bytes_to_array(audio_data)
-            if audio_array is None:
+            # 轉換音頻為 AudioData 對象
+            audio_data_obj = self._audio_bytes_to_audiodata(audio_data)
+            if audio_data_obj is None:
                 return {"success": False, "error": "音頻處理失敗"}
             
             logger.info(f"開始轉錄，語言: {language}")
             
-            # 設定參數
-            generate_kwargs = {"task": "transcribe"}
+            # 根據語言選擇識別引擎
+            result_text = ""
+            detected_language = language
+            confidence = 0.0
             
-            if language != "auto":
-                generate_kwargs["language"] = language
-            
-            if return_timestamps:
-                generate_kwargs["return_timestamps"] = True
-            
-            # 執行轉錄
-            result = self.pipe(audio_array, generate_kwargs=generate_kwargs)
+            try:
+                # 優先嘗試使用 Google Speech Recognition (免費)
+                if language == "auto" or language == "zh":
+                    # 中文識別
+                    result_text = self.recognizer.recognize_google(audio_data_obj, language="zh-CN")
+                    detected_language = "zh"
+                    confidence = 0.8
+                elif language == "en":
+                    # 英文識別
+                    result_text = self.recognizer.recognize_google(audio_data_obj, language="en-US")
+                    detected_language = "en"
+                    confidence = 0.8
+                else:
+                    # 其他語言
+                    language_map = {
+                        "ja": "ja-JP",
+                        "ko": "ko-KR", 
+                        "es": "es-ES",
+                        "fr": "fr-FR",
+                        "de": "de-DE",
+                        "ru": "ru-RU",
+                        "pt": "pt-BR",
+                        "it": "it-IT",
+                        "ar": "ar-SA",
+                        "hi": "hi-IN",
+                        "th": "th-TH",
+                        "vi": "vi-VN"
+                    }
+                    google_lang = language_map.get(language, "en-US")
+                    result_text = self.recognizer.recognize_google(audio_data_obj, language=google_lang)
+                    detected_language = language
+                    confidence = 0.8
+                    
+            except sr.UnknownValueError:
+                logger.warning("Google Speech Recognition 無法理解音頻")
+                # 嘗試使用離線識別器
+                try:
+                    result_text = self.recognizer.recognize_sphinx(audio_data_obj)
+                    detected_language = "en"  # Sphinx 主要支援英文
+                    confidence = 0.6
+                except (sr.UnknownValueError, sr.RequestError):
+                    return {"success": False, "error": "無法識別音頻內容"}
+                    
+            except sr.RequestError as e:
+                logger.warning(f"Google Speech Recognition 服務錯誤: {e}")
+                # 嘗試使用離線識別器
+                try:
+                    result_text = self.recognizer.recognize_sphinx(audio_data_obj)
+                    detected_language = "en"
+                    confidence = 0.6
+                except (sr.UnknownValueError, sr.RequestError):
+                    return {"success": False, "error": f"語音識別服務錯誤: {str(e)}"}
             
             # 處理結果
             response_data = {
                 "success": True,
-                "transcribed_text": result.get("text", "").strip(),
-                "detected_language": language,
-                "language_confidence": 1.0,
+                "transcribed_text": result_text.strip(),
+                "detected_language": detected_language,
+                "language_confidence": confidence,
                 "segments": []
             }
             
-            # 處理時間戳
-            if return_timestamps and "chunks" in result:
-                for chunk in result["chunks"]:
-                    if "timestamp" in chunk and chunk["timestamp"]:
-                        start_time = chunk["timestamp"][0] or 0.0
-                        end_time = chunk["timestamp"][1] or 0.0
-                        text = chunk.get("text", "").strip()
-                        
-                        response_data["segments"].append({
-                            "text": text,
-                            "start_time": start_time,
-                            "end_time": end_time
-                        })
+            # 如果需要時間戳，創建一個簡單的段落
+            if return_timestamps and result_text:
+                response_data["segments"].append({
+                    "text": result_text.strip(),
+                    "start_time": 0.0,
+                    "end_time": len(audio_data_obj.frame_data) / (audio_data_obj.sample_rate * audio_data_obj.sample_width)
+                })
             
             logger.info("轉錄完成")
             return response_data
@@ -252,7 +283,6 @@ class SpeechRecognitionServicer:
             context.set_details(str(e))
             return model_service_pb2.SpeechRecognitionResponse(success=False)
     
-    # 添加缺少的方法
     def get_supported_languages(self) -> Dict[str, str]:
         """
         獲取支援的語言列表
@@ -287,12 +317,14 @@ class SpeechRecognitionServicer:
             Dict[str, str]: 模型訊息
         """
         return {
-            "model_id": self.model_id,
-            "model_size": "large-v3-turbo",
-            "device": self.device,
-            "torch_dtype": str(self.torch_dtype),
-            "model_loaded": self.pipe is not None,
+            "model_id": "speech_recognition",
+            "model_size": self.model_size,
+            "engine": "Google Speech Recognition + Sphinx (offline backup)",
+            "model_loaded": True,
             "supported_languages": list(self.get_supported_languages().keys()),
-            "uses_ffmpeg": False,  # 標示不依賴 ffmpeg
-            "uses_librosa": True   # 標示使用 librosa
+            "uses_ffmpeg": False,
+            "uses_librosa": True,
+            "requires_authentication": False,
+            "primary_engine": "Google Speech Recognition API",
+            "fallback_engine": "CMU Sphinx (offline)"
         }

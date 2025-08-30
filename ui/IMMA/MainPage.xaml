@@ -72,18 +72,6 @@
 
                     <HorizontalStackLayout Spacing="15">
                         <VerticalStackLayout Spacing="5" WidthRequest="150">
-                            <Label Text="Source Language" />
-                            <Picker x:Name="SourceLangPicker" SelectedIndex="0">
-                                <Picker.ItemsSource>
-                                    <x:Array Type="{x:Type x:String}">
-                                        <x:String>Chinese</x:String>
-                                        <x:String>English</x:String>
-                                        <x:String>Japanese</x:String>
-                                    </x:Array>
-                                </Picker.ItemsSource>
-                            </Picker>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="5" WidthRequest="150">
                             <Label Text="Target Language" />
                             <Picker x:Name="TargetLangPicker" SelectedIndex="2">
                                 <Picker.ItemsSource>

@@ -805,6 +805,7 @@ namespace IMMA
                 transalteRecordingWriter!.Close();
                 transalteRecordingWriter!.Dispose();
                 using var fs = File.OpenRead("translate.wav");
+                Client.NPUStart(new());
                 var request = new SpeechRecognitionRequest()
                 {
                     AudioData = Google.Protobuf.ByteString.FromStream(fs),
@@ -812,15 +813,29 @@ namespace IMMA
                     Language = "auto",
                     ReturnTimestamps = false,
                 };
-                var result = await Client.SpeechRecognitionAsync(request);
+                try
+                {
 
-                TranslationTextEditor.Text = string.Join("\n", result.TranscribedText);
+                    var result = await Client.SpeechRecognitionAsync(request);
+                    TranslationTextEditor.Text = string.Join("\n", result.TranscribedText);
+                }
+                catch (Exception ex)
+                {
+                    DisplayAlert(Title, ex.Message,"OK");
+                }
+
+                Client.NPUStop(new());
 
                 EnableButton(MicButton);
                 MicButton.Text = "🎤 Start Recording";
             }
             else
             {
+                if (Microphone?.Format == null)
+                {
+                    await DisplayAlert("Error", "The meeting has not been started", "OK");
+                    return;
+                }
                 MicButton.Text = "🎤 Stop Recording";
                 transalteRecordingWriter = new WaveFileWriter("translate.wav", Microphone.Format);
                 translateRecording = true;
@@ -844,7 +859,7 @@ namespace IMMA
         private async void OnTranslateClicked(object sender, EventArgs e)
         {
             DisableButton(TranslateButton);
-            if (SourceLangPicker.SelectedItem == null || TargetLangPicker.SelectedItem == null)
+            if (TargetLangPicker.SelectedItem == null)
             {
                 await DisplayAlert("Error", "Please select source and target languages", "OK");
                 EnableButton(TranslateButton);
@@ -853,7 +868,7 @@ namespace IMMA
 
             try
             {
-                string sourceLang = SourceLangPicker.SelectedItem?.ToString() ?? "";
+                string sourceLang = "";
                 string targetLang = TargetLangPicker.SelectedItem?.ToString() ?? "";
                 string textToTranslate = TranslationTextEditor.Text;
 
@@ -867,7 +882,7 @@ namespace IMMA
                 // Use Gemini for translation
                 var chat = chatModel.StartChat();
                 string prompt = $"Translate the following text from {sourceLang} to {targetLang}. Only return the translated text without any explanations or additional content:\n\n{textToTranslate}";
-                
+
                 var result = await chat.GenerateContentAsync(prompt);
 
                 if (result?.Text != null)
@@ -875,7 +890,7 @@ namespace IMMA
                     // Animate the text appearing and overwrite the original text
                     string translatedText = result.Text;
                     TranslationTextEditor.Text = ""; // Clear first
-                    
+
                     for (int i = 0; i <= translatedText.Length; i++)
                     {
                         TranslationTextEditor.Text = translatedText.Substring(0, i);
@@ -893,7 +908,7 @@ namespace IMMA
             {
                 await DisplayAlert("Error", $"Translation error: {ex.Message}", "OK");
             }
-            
+
             EnableButton(TranslateButton);
         }
 
