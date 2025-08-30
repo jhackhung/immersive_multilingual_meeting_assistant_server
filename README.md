@@ -43,7 +43,23 @@ This project is a comprehensive multilingual meeting assistant solution providin
 - **[Speech Recognition Implementation](./documents/SPEECH_RECOGNITION_IMPLEMENTATION.md)** - Detailed STT service implementation
 - **[Virtual Avatar Guide](./documents/VIRTUAL_AVATAR_GUIDE.md)** - Avatar system setup and usage
 
-##  Installation Guide
+## Installation Guide
+
+### Building and Running the C# UI
+
+```bash
+# Navigate to the UI directory
+cd ui
+
+# Restore NuGet packages
+dotnet restore
+
+# Build the application
+dotnet build
+
+# Run the application
+dotnet run
+```
 
 ### System Requirements
 
