@@ -40,12 +40,12 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         
         # 輸入驗證
         if not os.path.exists(self.default_speaker_wav_path):
-            raise FileNotFoundError(f"❌ 找不到預設參考音訊檔案: {self.default_speaker_wav_path}")
+            raise FileNotFoundError(f"找不到預設參考音訊檔案: {self.default_speaker_wav_path}")
         if not os.path.exists(self.onnx_model_path):
-            raise FileNotFoundError(f"❌ 找不到優化後的 ONNX 模型: {self.onnx_model_path}")
+            raise FileNotFoundError(f"找不到優化後的 ONNX 模型: {self.onnx_model_path}")
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        logger.info(f"✅ TTS 服務使用裝置: {self.device}")
+        logger.info(f"TTS 服務使用裝置: {self.device}")
 
         # --- 載入 XTTS-v2 模型 ---
         logger.info("⏳ 正在載入 XTTS-v2 模型...")
@@ -59,7 +59,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         # --- 載入優化後的 ONNX 聲碼器模型 (NPU 友好) ---
         logger.info("⏳ 正在載入優化後的 ONNX 聲碼器...")
         self.onnx_session, self.active_providers = self._build_ort_session(self.onnx_model_path)
-        logger.info(f"✅ ONNX 聲碼器載入成功，使用 EP: {self.active_providers}")
+        logger.info(f"ONNX 聲碼器載入成功，使用 EP: {self.active_providers}")
 
         # --- 快取系統初始化（修正點 1）---
         self._blob_cache = {}  # 分離儲存音訊 bytes
@@ -119,18 +119,18 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         providers = [ep for ep in ep_candidates if ep in available_providers]
         
         if not providers:
-            logger.warning("⚠️ 找不到任何建議的 EP，強制使用 CPU。")
+            logger.warning("找不到任何建議的 EP，強制使用 CPU。")
             providers = ["CPUExecutionProvider"]
         
-        logger.debug(f"🔍 可用的 EP: {available_providers}")
-        logger.info(f"🎯 選用的 EP 順序: {providers}")
+        logger.debug(f"可用的 EP: {available_providers}")
+        logger.info(f"選用的 EP 順序: {providers}")
         
         try:
             sess = ort.InferenceSession(model_path, sess_options=so, providers=providers)
             actual_providers = sess.get_providers()
             return sess, actual_providers
         except Exception as e:
-            logger.warning(f"⚠️ 使用優先 EP 失敗，回退到 CPU: {e}")
+            logger.warning(f"使用優先 EP 失敗，回退到 CPU: {e}")
             sess = ort.InferenceSession(model_path, sess_options=so, providers=["CPUExecutionProvider"])
             return sess, ["CPUExecutionProvider"]
 
@@ -162,7 +162,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                 "mel_spectrogram": dummy_mel,
                 "speaker_embedding": dummy_spk,
             })
-            logger.info("✅ Warm-up 完成")
+            logger.info("Warm-up 完成")
         except Exception as e:
             logger.warning(f"⚠️ Warm-up 失敗，但不影響服務: {e}")
 
@@ -344,7 +344,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
         def bg_pregenerate():
             """背景預生成"""
             try:
-                logger.info("🔄 開始預生成 LLM 回答模式...")
+                logger.info("開始預生成 LLM 回答模式...")
                 for i, pattern in enumerate(llm_patterns):
                     try:
                         self._fast_generate_sentence(pattern, "en", cache_only=True)
@@ -354,7 +354,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                     except Exception as e:
                         continue
                 
-                logger.info(f"✅ 預生成完成: {len(self._sentence_cache)} 個模式")
+                logger.info(f"預生成完成: {len(self._sentence_cache)} 個模式")
                 
             except Exception as e:
                 logger.warning(f"預生成失敗: {e}")
@@ -410,7 +410,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             return b""
         
         try:
-            logger.debug(f"🚀 快速生成句子: '{sentence[:30]}...'")
+            logger.debug(f"快速生成句子: '{sentence[:30]}...'")
             
             # 使用快取的 conditioning
             gpt_cond_latent, speaker_embedding = self._get_cached_conditioning(self._default_hash)
@@ -636,7 +636,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             # --- 生成梅爾頻譜 ---
             text_to_speak = request.text_to_speak.strip()
             language = request.language or "en"
-            logger.info(f"📝 準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
+            logger.info(f"準備生成文字 (語言: {language}): '{text_to_speak[:30]}...'")
             
             # 文字編碼與生成
             text_tokens = torch.IntTensor(
@@ -673,12 +673,12 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             speaker_embedding_np = speaker_embedding.cpu().numpy().astype(np.float32)
 
             total_mel_length = full_mel_spectrogram_np.shape[1]
-            logger.info(f"📊 總梅爾頻譜長度: {total_mel_length}")
+            logger.info(f"總梅爾頻譜長度: {total_mel_length}")
 
             audio_chunks = []
             num_chunks = (full_mel_spectrogram_np.shape[1] + self.fixed_mel_chunk_length - 1) // self.fixed_mel_chunk_length
             
-            logger.debug(f"🔄 準備處理 {num_chunks} 個音訊塊...")
+            logger.debug(f"準備處理 {num_chunks} 個音訊塊...")
             
             for i in range(num_chunks):
                 start_idx = i * self.fixed_mel_chunk_length
@@ -733,7 +733,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             if original_length > trimmed_length:
                 original_duration = original_length / self.sample_rate
                 trimmed_duration = trimmed_length / self.sample_rate
-                logger.info(f"✂️ 已修剪尾部靜音。音訊長度從 {original_duration:.2f}s 減少到 {trimmed_duration:.2f}s。")
+                logger.info(f"已修剪尾部靜音。音訊長度從 {original_duration:.2f}s 減少到 {trimmed_duration:.2f}s。")
             ### --- 修改結束 --- ###
             
             # --- 轉換為 WAV bytes ---
@@ -742,9 +742,9 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             wav_bytes = buffer.getvalue()
             
             end_time = time.time()
-            logger.info(f"✅ 請求處理完成，總耗時: {end_time - start_time:.2f} 秒")
-            logger.info(f"📊 使用的 EP: {self.active_providers[0] if self.active_providers else 'Unknown'}")
-            logger.info(f"✅ 最終音訊預估時長: {len(wav_bytes) / (self.sample_rate * 4):.2f} 秒")
+            logger.info(f"請求處理完成，總耗時: {end_time - start_time:.2f} 秒")
+            logger.info(f"使用的 EP: {self.active_providers[0] if self.active_providers else 'Unknown'}")
+            logger.info(f"最終音訊預估時長: {len(wav_bytes) / (self.sample_rate * 4):.2f} 秒")
             # TODO: 修正點 6 - 加入 metrics 追蹤
             # metrics.tts_request_latency_ms.observe((end_time - start_time) * 1000)
             # metrics.onnx_ep_in_use.labels(self.active_providers[0]).inc()
@@ -752,99 +752,10 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             return model_service_pb2.TtsResponse(generated_audio=wav_bytes)
 
         except Exception as e:
-            logger.error(f"❌ 處理請求時發生錯誤: {e}")
+            logger.error(f"處理請求時發生錯誤: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"內部伺服器錯誤: {str(e)}")
             return model_service_pb2.TtsResponse()
-    
-    # def Tts(self, request, context):
-    #     """
-    #     LLM 回答場景優化的 TTS 處理 - 修復版本
-    #     """
-    #     start_time = time.time()
-
-    #     try:
-    #         # 輸入驗證
-    #         is_valid, error_msg = self._validate_request(request)
-    #         if not is_valid:
-    #             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-    #             context.set_details(error_msg)
-    #             return model_service_pb2.TtsResponse()
-            
-    #         text = request.text_to_speak.strip()
-    #         language = request.language or "en"
-            
-    #         logger.info(f"📝 LLM TTS 請求: '{text[:50]}...' ({len(text)} 字符)")
-            
-    #         # 快速策略選擇
-    #         use_fast_mode = (
-    #             len(text) <= 200 and  # 中短文本
-    #             not request.reference_audio and  # 不使用自定義聲音
-    #             self.fast_mode_enabled  # 快速模式啟用
-    #         )
-            
-    #         if use_fast_mode:
-    #             logger.info("🚀 嘗試快速模式")
-                
-    #             if len(text) <= 50:
-    #                 # 短文本：直接快速生成
-    #                 logger.info("📝 使用短文本快速模式")
-    #                 audio_bytes = self._fast_generate_sentence(text, language)
-                    
-    #                 if audio_bytes:
-    #                     total_time = time.time() - start_time
-    #                     logger.info(f"⚡ 短文本完成: {total_time:.2f}s")
-    #                     return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
-    #                 else:
-    #                     logger.warning("⚠️ 短文本快速模式失敗，回退到標準模式")
-                        
-    #             else:
-    #                 # 中等文本：分句處理
-    #                 logger.info("📚 使用分句模式")
-    #                 sentences = self._split_into_sentences(text)
-    #                 logger.info(f"📊 分割為 {len(sentences)} 個句子")
-                    
-    #                 if len(sentences) == 1:
-    #                     # 只有一句，直接處理
-    #                     audio_bytes = self._fast_generate_sentence(sentences[0], language)
-    #                     if audio_bytes:
-    #                         total_time = time.time() - start_time
-    #                         logger.info(f"⚡ 單句完成: {total_time:.2f}s")
-    #                         return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
-    #                 else:
-    #                     # 多句處理 - 先嘗試快速，失敗則回退
-    #                     try:
-    #                         audio_chunks = []
-    #                         all_success = True
-                            
-    #                         for i, sentence in enumerate(sentences):
-    #                             chunk = self._fast_generate_sentence(sentence, language)
-    #                             if chunk:
-    #                                 audio_chunks.append(chunk)
-    #                             else:
-    #                                 logger.warning(f"⚠️ 句子 {i+1} 快速生成失敗")
-    #                                 all_success = False
-    #                                 break
-                            
-    #                         if all_success and audio_chunks:
-    #                             audio_bytes = self._merge_audio_files(audio_chunks)
-    #                             if audio_bytes:
-    #                                 total_time = time.time() - start_time
-    #                                 logger.info(f"⚡ 分句並行完成: {total_time:.2f}s")
-    #                                 return model_service_pb2.TtsResponse(generated_audio=audio_bytes)
-                            
-    #                     except Exception as e:
-    #                         logger.warning(f"⚠️ 分句並行失敗: {e}")
-            
-    #         # 回退到標準模式（原有的完整邏輯）
-    #         logger.info("🔄 使用標準 TTS 模式")
-    #         return self._standard_tts_process(request, context, start_time)
-            
-    #     except Exception as e:
-    #         logger.error(f"❌ TTS 處理錯誤: {e}")
-    #         context.set_code(grpc.StatusCode.INTERNAL)
-    #         context.set_details(f"TTS 處理失敗: {str(e)}")
-    #         return model_service_pb2.TtsResponse()
     
     def _standard_tts_process(self, request, context, start_time):
         """
@@ -905,14 +816,14 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             speaker_embedding_np = speaker_embedding.cpu().numpy().astype(np.float32)
 
             total_mel_length = full_mel_spectrogram_np.shape[1]
-            logger.info(f"📊 總梅爾頻譜長度: {total_mel_length}")
+            logger.info(f"總梅爾頻譜長度: {total_mel_length}")
 
             audio_chunks = []
             # 使用固定的 chunk_size = 100 (與 ONNX 模型匹配)
             chunk_size = self.fixed_mel_chunk_length  # 100
             num_chunks = (total_mel_length + chunk_size - 1) // chunk_size
             
-            logger.debug(f"🔄 準備處理 {num_chunks} 個音訊塊...")
+            logger.debug(f"準備處理 {num_chunks} 個音訊塊...")
             
             for i in range(num_chunks):
                 start_idx = i * chunk_size
@@ -945,9 +856,9 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
                     chunk_audio = chunk_output.squeeze()[:actual_audio_length]
                     audio_chunks.append(chunk_audio)
                     
-                    logger.debug(f"✅ 第 {i+1}/{num_chunks} 塊推論成功")
+                    logger.debug(f"第 {i+1}/{num_chunks} 塊推論成功")
                 except Exception as e:
-                    logger.warning(f"⚠️ 第 {i+1} 塊推論失敗: {e}")
+                    logger.warning(f"第 {i+1} 塊推論失敗: {e}")
                     continue
 
             # --- Overlap-Add 拼接 ---
@@ -966,7 +877,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             if original_length > trimmed_length:
                 original_duration = original_length / self.sample_rate
                 trimmed_duration = trimmed_length / self.sample_rate
-                logger.info(f"✂️ 已修剪尾部靜音。音訊長度從 {original_duration:.2f}s 減少到 {trimmed_duration:.2f}s。")
+                logger.info(f"已修剪尾部靜音。音訊長度從 {original_duration:.2f}s 減少到 {trimmed_duration:.2f}s。")
             
             # --- 轉換為 WAV bytes ---
             buffer = io.BytesIO()
@@ -979,7 +890,7 @@ class TtsServicer(model_service_pb2_grpc.MediaServiceServicer):
             return model_service_pb2.TtsResponse(generated_audio=wav_bytes)
             
         except Exception as e:
-            logger.error(f"❌ 標準模式處理錯誤: {e}")
+            logger.error(f"標準模式處理錯誤: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"標準模式處理失敗: {str(e)}")
             return model_service_pb2.TtsResponse()

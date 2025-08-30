@@ -32,10 +32,10 @@ class LLMServicer(model_service_pb2_grpc.MediaServiceServicer):
         try:
             # 初始化底層模型
             self.llm_model = LLMModel(model_name=model_name)
-            print("✅ LLM API 服務初始化完成")
+            print("LLM API 服務初始化完成")
             
         except Exception as e:
-            print(f"❌ LLM API 服務初始化失敗: {e}")
+            print(f"LLM API 服務初始化失敗: {e}")
             raise
 
     def GenerateText(self, request, context):

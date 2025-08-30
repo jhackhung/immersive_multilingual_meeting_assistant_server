@@ -42,7 +42,7 @@ class OfficialRealtimeDiarizer:
         self.pipeline.instantiate({
             "clustering": {"threshold": clustering_threshold},
         })
-        print(f"✅ Pipeline 載入完成，聚類閾值設定為: {clustering_threshold}")
+        print(f"Pipeline 載入完成，聚類閾值設定為: {clustering_threshold}")
 
         # --- 4. 狀態管理 ---
         self.sample_rate = 16000
@@ -51,11 +51,11 @@ class OfficialRealtimeDiarizer:
         # --- 5. 音訊處理設定 ---
         self.ffmpeg_available = self._check_ffmpeg()
         if self.ffmpeg_available:
-            print("✅ FFmpeg 可用，支援更多音訊格式")
+            print("FFmpeg 可用，支援更多音訊格式")
         else:
-            print("⚠️ FFmpeg 不可用，使用 librosa 作為備用方案")
+            print("FFmpeg 不可用，使用 librosa 作為備用方案")
 
-        print("✅ 官方即時講者分辨器已就緒。")
+        print("官方即時講者分辨器已就緒。")
 
     def _check_ffmpeg(self) -> bool:
         """檢查系統是否安裝了 ffmpeg"""

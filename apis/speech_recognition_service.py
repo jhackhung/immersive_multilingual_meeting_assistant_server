@@ -58,11 +58,11 @@ class SpeechRecognitionServicer:
                 device=self.device,
             )
             
-            logger.info("✅ 模型載入成功")
+            logger.info("模型載入成功")
             return True
             
         except Exception as e:
-            logger.error(f"❌ 模型載入失敗: {e}")
+            logger.error(f"模型載入失敗: {e}")
             return False
     
     def _detect_audio_format(self, audio_data: bytes) -> str:
