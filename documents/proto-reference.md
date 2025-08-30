@@ -2,7 +2,7 @@
 
 This document provides comprehensive documentation for the gRPC service definitions in `model_service.proto`.
 
-## 📋 Service Overview
+## Service Overview
 
 The system provides two main gRPC services:
 
@@ -13,7 +13,7 @@ The system provides two main gRPC services:
 
 ---
 
-## 🌍 TranslatorService
+## TranslatorService
 
 ### Service Definition
 
@@ -23,11 +23,11 @@ service TranslatorService {
 }
 ```
 
-### 🔄 Translate
+### Translate
 
 **Purpose**: Translate text between supported languages using mBART-50 model.
 
-#### Request Message
+#### Translate Request
 
 ```protobuf
 message TranslateRequest {
@@ -37,7 +37,7 @@ message TranslateRequest {
 }
 ```
 
-#### Response Message
+#### Translate Response
 
 ```protobuf
 message TranslateResponse {
@@ -66,9 +66,9 @@ print(f"Translation: {response.translated_text}")
 
 ---
 
-## 🎥 MediaService
+## MediaService
 
-### Service Definition
+### MediaService Definition
 
 ```protobuf
 service MediaService {
@@ -87,11 +87,11 @@ service MediaService {
 
 ---
 
-### 🎬 Wav2Lip
+### Wav2Lip
 
 **Purpose**: Generate lip-sync videos using face images and audio.
 
-#### Request Message
+#### Wav2Lip Request
 
 ```protobuf
 message Wav2LipRequest {
@@ -100,7 +100,7 @@ message Wav2LipRequest {
 }
 ```
 
-#### Response Message
+#### Wav2Lip Response
 
 ```protobuf
 message Wav2LipResponse {
@@ -110,11 +110,11 @@ message Wav2LipResponse {
 
 ---
 
-### 🔊 Tts (Text-to-Speech)
+### Tts (Text-to-Speech)
 
 **Purpose**: Convert text to natural speech with optional voice cloning.
 
-#### Request Message
+#### TTS Request
 
 ```protobuf
 message TtsRequest {
@@ -140,7 +140,7 @@ message TtsResponse {
 
 ---
 
-### 👥 SpeakerAnnote (Speaker Diarization)
+### SpeakerAnnote (Speaker Diarization)
 
 **Purpose**: Identify and separate different speakers in audio.
 
@@ -174,7 +174,7 @@ message SpeakerTimeline {
 
 ---
 
-### 🎙️ SpeechRecognition (Speech-to-Text)
+### SpeechRecognition (Speech-to-Text)
 
 **Purpose**: Convert audio to text using OpenAI Whisper.
 
@@ -209,7 +209,7 @@ message TranscriptionSegment {
 
 ---
 
-### 🤖 GenerateText (Text Generation)
+### GenerateText (Text Generation)
 
 **Purpose**: Generate text based on prompts using LLM.
 
@@ -236,7 +236,7 @@ message TextGenerationResponse {
 
 ---
 
-### 🤖 ChatCompletion (AI Chat Assistant)
+### ChatCompletion (AI Chat Assistant)
 
 **Purpose**: Multi-turn conversation with AI assistant using Qwen 1.5 model.
 
@@ -267,7 +267,7 @@ message ChatCompletionResponse {
 
 ---
 
-### 🔍 AnswerQuestionFromDocuments (RAG Q&A)
+### AnswerQuestionFromDocuments (RAG Q&A)
 
 **Purpose**: Answer questions based on document knowledge using RAG.
 
@@ -292,11 +292,11 @@ message AnswerQuestionResponse {
 
 ---
 
-### 🌊 StreamingRecognize (Real-time STT)
+### StreamingRecognize (Real-time STT)
 
 **Purpose**: Bidirectional streaming speech recognition for real-time applications.
 
-#### Request Message (Streaming)
+#### StreamingRecognize Request (Streaming)
 
 ```protobuf
 message StreamingRecognizeRequest {
@@ -310,7 +310,7 @@ message AudioChunk {
 }
 ```
 
-#### Response Message (Streaming)
+#### StreamingRecognize Response (Streaming)
 
 ```protobuf
 message StreamingRecognizeResponse {
@@ -342,7 +342,7 @@ message WordInfo {
 
 ---
 
-### 🎭 Avatar Services
+### Avatar Services
 
 #### InitAvatar
 
@@ -378,7 +378,7 @@ message AvatarSpeakResponse {
 
 ---
 
-## 🔧 Error Handling
+## Error Handling
 
 ### Standard gRPC Status Codes
 
@@ -393,8 +393,9 @@ message AvatarSpeakResponse {
 ### Error Response Pattern
 
 Services with `success` and `error_message` fields:
+
 - `GenerateText`
-- `ChatCompletion` 
+- `ChatCompletion`  
 - `AnswerQuestionFromDocuments`
 - `SpeechRecognition`
 - `InitAvatar`
@@ -418,7 +419,7 @@ except grpc.RpcError as e:
 
 ---
 
-## 📈 Performance Guidelines
+## Performance Guidelines
 
 ### Request Size Limits
 
@@ -443,7 +444,7 @@ except grpc.RpcError as e:
 
 ---
 
-## 🛠️ Development Tools
+## Development Tools
 
 ### Protocol Buffer Compilation
 

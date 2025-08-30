@@ -4,17 +4,20 @@
 
 This service provides core gRPC APIs covering the complete workflow of multilingual meeting assistance.
 
-## 🌍 1. Translation Service
+## 1. Translation Service
 
-### Description
+### Translation Service Description
+
 Multilingual text translation using mBART-50 model, supporting 50+ language pairs.
 
-### Features
+### Translation Features
+
 - **50+ Languages**: Support for major world languages
 - **Auto Detection**: Automatic source language detection
 - **High Accuracy**: mBART-50 based translation quality
 
-### Usage Example
+### Speech Recognition Usage Example
+
 ```python
 import grpc
 import proto.model_service_pb2_grpc as pb2_grpc
@@ -33,6 +36,7 @@ print(f"Translation: {response.translated_text}")
 ```
 
 ### Supported Languages
+
 - **Chinese**: zh-CN, zh-TW
 - **English**: en
 - **Japanese**: ja
@@ -44,18 +48,21 @@ print(f"Translation: {response.translated_text}")
 
 ---
 
-## 🔊 2. Text-to-Speech Service
+## 2. Text-to-Speech Service
 
-### Description
+### Text-to-Speech Service Description
+
 High-quality multilingual speech synthesis based on XTTS-v2 with voice cloning capabilities.
 
-### Features
+### TTS Features
+
 - **Voice Cloning**: Only 6-10 seconds of audio sample needed
 - **Fast Mode**: 5-10 seconds completion for short texts
 - **ONNX Optimization**: GPU/NPU accelerated inference
 - **Memory Caching**: Intelligent caching strategy
 
-### Usage Example
+### Text-to-Speech Usage Example
+
 ```python
 request = pb2.TtsRequest(
     text_to_speak="Hello, this is a test.",
@@ -67,18 +74,21 @@ response = media_stub.Tts(request)
 
 ---
 
-## 🎙️ 3. Speech Recognition Service
+## 3. Speech Recognition Service
 
-### Description
+### Speech Recognition Service Description
+
 High-accuracy speech-to-text using OpenAI Whisper model.
 
-### Features
+### Speech Recognition Features
+
 - **11+ Languages**: Multi-language support
 - **Auto Detection**: Automatic language detection
 - **Noise Suppression**: Audio preprocessing and noise reduction
 - **Timestamps**: Word-level timing information
 
-### Usage Example
+### STT Usage Example
+
 ```python
 request = pb2.SpeechRecognitionRequest(
     audio_data=audio_bytes,
@@ -91,17 +101,20 @@ print(f"Transcription: {response.transcribed_text}")
 
 ---
 
-## 👥 4. Speaker Identification Service
+## 4. Speaker Identification Service
 
-### Description
+### Speaker Identification Service Description
+
 Real-time speaker separation and identification using PyAnnote Audio.
 
-### Features
+### Speaker Identification Features
+
 - **Auto Speaker Count**: Automatic detection of speaker numbers
 - **Timestamps**: Time-stamped speaker segments
 - **Voice Print Analysis**: Speaker voice pattern analysis
 
-### Usage Example
+### Speaker Identification Usage Example
+
 ```python
 request = pb2.SpeakerAnnoteRequest(audio_data=audio_bytes)
 response = media_stub.SpeakerAnnote(request)
@@ -119,17 +132,20 @@ for timeline in response.speaker_timelines:
 
 ---
 
-## 🤖 5. LLM Q&A Service
+## 5. LLM Q&A Service
 
-### Description
+### LLM Q&A Service Description
+
 AI-powered intelligent Q&A based on Qwen 1.5, supporting meeting content understanding.
 
-### Features
+### LLM Features
+
 - **Meeting Understanding**: Context-aware responses
 - **Multi-turn Conversation**: Support for conversation history
 - **Content Summarization**: Automatic meeting summary generation
 
-### Usage Example
+### LLM Usage Example
+
 ```python
 messages = [
     pb2.ChatMessage(role="system", content="You are a meeting assistant"),
@@ -147,17 +163,20 @@ print(f"AI Response: {response.response}")
 
 ---
 
-## 🎬 6. Virtual Avatar Service
+## 6. Virtual Avatar Service
 
-### Description
+### Virtual Avatar Service Description
+
 Lip-sync virtual avatar generation using Wav2Lip technology.
 
-### Features
+### Avatar Features
+
 - **Realistic Lip Sync**: High-accuracy facial animation
 - **Multiple Formats**: JPG, PNG image input, MP4 video output
 - **GPU Acceleration**: Significantly improved processing speed
 
-### Usage Example
+### Virtual Avatar Usage Example
+
 ```python
 # Method 1: Direct generation
 request = pb2.Wav2LipRequest(
@@ -184,18 +203,21 @@ speak_response = media_stub.AvatarSpeak(speak_request)
 
 ---
 
-## 🔍 7. RAG Document Search Service
+## 7. RAG Document Search Service
 
-### Description
+### RAG Document Search Service Description
+
 Intelligent document retrieval and Q&A system based on ChromaDB.
 
-### Features
+### RAG Features
+
 - **Semantic Search**: Vector similarity-based search
 - **Multi-format Support**: PDF, DOCX, TXT documents
 - **Context Enhancement**: RAG architecture for improved answer quality
 - **Source Attribution**: References to original documents
 
-### Usage Example
+### RAG Usage Example
+
 ```python
 request = pb2.AnswerQuestionRequest(
     query="What were the main decisions made in today's meeting?"
@@ -207,18 +229,21 @@ print(f"Sources: {', '.join(response.sources)}")
 
 ---
 
-## 🌊 8. Streaming Recognition Service
+## 8. Streaming Recognition Service
 
-### Description
+### Streaming Recognition Service Description
+
 Bidirectional streaming speech recognition for real-time applications.
 
-### Features
+### Streaming Features
+
 - **Real-time Processing**: Live audio transcription
 - **Speaker Detection**: Integrated speaker identification
 - **Low Latency**: Sub-second response time
 - **Session Management**: Continuous conversation tracking
 
 ### Usage Example
+
 ```python
 def stream_audio():
     for chunk in audio_chunks:
@@ -238,9 +263,10 @@ for response in responses:
 
 ---
 
-## 📝 Complete Workflow Example
+## Complete Workflow Example
 
 ### Multilingual Meeting Processing Pipeline
+
 ```python
 import grpc
 import proto.model_service_pb2_grpc as pb2_grpc
@@ -295,7 +321,7 @@ chat_request = pb2.ChatCompletionRequest(
 chat_response = media_stub.ChatCompletion(chat_request)
 ```
 
-## 🔧 Error Handling
+## Error Handling
 
 All APIs use standard gRPC status codes:
 
@@ -306,6 +332,7 @@ All APIs use standard gRPC status codes:
 - `UNAVAILABLE`: Service unavailable
 
 ### Error Handling Example
+
 ```python
 import grpc
 
@@ -320,15 +347,17 @@ except grpc.RpcError as e:
     print(f"gRPC error: {e.code()} - {e.details()}")
 ```
 
-## 📈 Performance Guidelines
+## Performance Guidelines
 
 ### Recommended Configuration
+
 - **Concurrent Connections**: 10-50
 - **Request Timeout**: 30-60 seconds
 - **GPU Memory**: 8GB+
 - **Batch Size**: 1-4
 
 ### Best Practices
+
 1. Use connection pools for gRPC connections
 2. Implement appropriate retry mechanisms
 3. Monitor memory usage
@@ -346,9 +375,10 @@ except grpc.RpcError as e:
 | **Avatar** | 10-30 sec | ~4GB | Lip sync |
 | **RAG Search** | < 1 sec | ~0.5GB | Semantic search |
 
-## 🛠️ Development Tools
+## Development Tools
 
 ### Testing Services
+
 ```bash
 # Test specific services
 python test_tts_service.py
@@ -362,6 +392,7 @@ grpcurl -plaintext localhost:50051 list
 ```
 
 ### Connection Management
+
 ```python
 # Recommended: Use connection pooling
 import grpc
@@ -380,9 +411,10 @@ options = [
 channel = grpc.insecure_channel('localhost:50051', options=options)
 ```
 
-## 📚 Related Documentation
+## Related Documentation
 
 ### Proto Files Reference
+
 For detailed protocol buffer definitions and message structures:
 
 - [Proto Reference](proto-reference.md) - Complete protocol buffer definitions
