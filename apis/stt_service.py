@@ -401,7 +401,7 @@ class STTService:
             self.feature_extractor = WhisperFeatureExtractor.from_pretrained(processor_model_id)
             
             self.is_initialized = True
-            logger.info("✅ ONNX 模型載入成功。")
+            logger.info("ONNX 模型載入成功。")
             return True
             
         except Exception as e:
