@@ -31,28 +31,17 @@ This project is a comprehensive multilingual meeting assistant solution providin
 | 陳紀睿 | 113403054@cc.ncu.edu.tw |
 | 李宥寬 | metasausage@g.ncu.edu.tw |
 
+## Documentation
 
-<!-- ##  Project Structure
+### Quick References
+- **[API Reference](./documents/api-reference.md)** - Complete API documentation and usage examples
+- **[Protocol Buffers Reference](./documents/proto-reference.md)** - gRPC service definitions and message formats
+- **[gRPC Client Testing Guide](./documents/GRPC_CLIENT_TESTING_GUIDE.md)** - Comprehensive testing procedures for all services
 
-```
-immersive_multilingual_meeting_assistant_server/
-├── server.py                    # 主要 gRPC 伺服器
-├── client.py                    # 測試客戶端
-├── model_service.proto          # gRPC 服務定義
-├── environment.yml              # Conda 環境配置
-├── apis/                       # API 服務實作
-│   ├── tts_service.py          # TTS 服務
-│   ├── speech_recognition_service.py # 語音識別服務
-│   ├── pyannote.py             # 說話者分離服務
-│   └── tts_sample/             # TTS 範例音檔
-├── models/                     # 模型實作
-│   ├── mbart_translator_model.py # mBART 翻譯模型
-│   └── hifigan.onnx            # HiFi-GAN 聲碼器 (ONNX)
-└── proto/                      # 自動生成的 gRPC 檔案
-    ├── model_service_pb2.py
-    ├── model_service_pb2_grpc.py
-    └── model_service_pb2.pyi
-``` -->
+### Implementation Guides
+- **[Implementation Summary](./documents/IMPLEMENTATION_SUMMARY.md)** - Overview of system architecture and components
+- **[Speech Recognition Implementation](./documents/SPEECH_RECOGNITION_IMPLEMENTATION.md)** - Detailed STT service implementation
+- **[Virtual Avatar Guide](./documents/VIRTUAL_AVATAR_GUIDE.md)** - Avatar system setup and usage
 
 ##  Installation Guide
 
@@ -67,7 +56,7 @@ immersive_multilingual_meeting_assistant_server/
 - **Network**: Stable internet connection (for model downloads)
 
 #### Recommended Configuration (Snapdragon Platform)
-- **Processor**: Snapdragon 8cx Gen 3 or newer
+- **Processor**: Snapdragon X elite or newer
 - **Memory**: 32GB RAM
 - **Storage**: NVMe SSD 100GB+
 - **QNN SDK**: Qualcomm AI Engine Direct SDK 2.10+
@@ -116,7 +105,7 @@ Create `.env` file:
 HUGGINGFACE_TOKEN=your_huggingface_token_here
 ```
 
->  **取得 Hugging Face Token**: 前往 [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) 建立 token
+>  **Get Hugging Face Token**: Go [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) to create token
 
 ### Step 4: Generate gRPC Code
 
@@ -131,12 +120,44 @@ python -m grpc_tools.protoc --proto_path=. --python_out=./proto --grpc_python_ou
 # Start main service
 python server.py
 
-# 測試連線 (另開終端)
+# Test connection (with another terminal)
 python client.py
 ```
 
-### API Usage Examples
-[API Reference](./documents/api-reference.md)
+## Testing and Development
+
+### Quick Start Testing
+
+After starting the server, you can test individual services:
+
+```bash
+# Test all services comprehensively
+python client.py
+
+# Test speech recognition service
+python test_stt_client.py
+
+# Test text-to-speech service
+python test_tts_service.py
+
+# Test virtual avatar service
+python test_avatar_client.py
+```
+
+For detailed testing procedures and troubleshooting, see the **[gRPC Client Testing Guide](./documents/GRPC_CLIENT_TESTING_GUIDE.md)**.
+
+### Service Implementation Details
+
+- **Speech Recognition**: Refer to [Speech Recognition Implementation](./documents/SPEECH_RECOGNITION_IMPLEMENTATION.md) for STT service details
+- **Virtual Avatar**: See [Virtual Avatar Guide](./documents/VIRTUAL_AVATAR_GUIDE.md) for avatar setup and configuration
+- **System Architecture**: Check [Implementation Summary](./documents/IMPLEMENTATION_SUMMARY.md) for overall system design
+
+## API Usage
+
+The server exposes multiple gRPC services. For complete API documentation including request/response formats, error codes, and usage examples, refer to:
+
+- **[API Reference](./documents/api-reference.md)** - Service methods and parameters
+- **[Protocol Buffers Reference](./documents/proto-reference.md)** - Message definitions and data structures
 
 ## License
 
