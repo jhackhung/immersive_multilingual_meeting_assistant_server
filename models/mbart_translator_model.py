@@ -79,11 +79,11 @@ class MBartTranslator:
                 "facebook/mbart-large-50-many-to-many-mmt"
             ).to(self.device)
             
-            print("✅ mBART-50 模型載入成功")
+            print("mBART-50 模型載入成功")
             return True
             
         except Exception as e:
-            print(f"❌ 模型載入失敗: {e}")
+            print(f"模型載入失敗: {e}")
             return False
     
     def translate(self, text, source_lang, target_lang):
@@ -156,7 +156,7 @@ def interactive_translate():
     """互動式翻譯"""
     translator = MBartTranslator()
     
-    print("🌍 mBART-50 多語言翻譯器")
+    print("mBART-50 多語言翻譯器")
     print("=" * 50)
     
     translator.show_supported_languages()
@@ -200,8 +200,8 @@ def interactive_translate():
             print("翻譯中...")
             result = translator.translate(text, source_lang, target_lang)
             
-            print(f"\n📝 原文 ({source_lang}): {text}")
-            print(f"🔄 翻譯 ({target_lang}): {result}")
+            print(f"\n原文 ({source_lang}): {text}")
+            print(f"翻譯 ({target_lang}): {result}")
             
         except KeyboardInterrupt:
             print("\n\n再見！")

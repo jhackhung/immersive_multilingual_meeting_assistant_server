@@ -417,39 +417,39 @@ class ServerManager:
             try:
                 self.speech_recognition_servicer = SpeechRecognitionServicer(model_size="base")
                 if self.speech_recognition_servicer.initialize():
-                    logger.info("✅ 語音識別服務初始化成功")
+                    logger.info("語音識別服務初始化成功")
                 else:
-                    logger.warning("❌ 語音識別服務初始化失敗，但繼續啟動其他服務")
+                    logger.warning("語音識別服務初始化失敗，但繼續啟動其他服務")
                     self.speech_recognition_servicer = None
             except Exception as e:
-                logger.warning(f"❌ 語音識別服務初始化失敗: {e}，但繼續啟動其他服務")
+                logger.warning(f"語音識別服務初始化失敗: {e}，但繼續啟動其他服務")
                 self.speech_recognition_servicer = None
             
             logger.info("正在初始化 STT 串流語音識別服務...")
             try:
                 use_qualcomm = False
                 self.stt_service = STTService(use_qualcomm_model=use_qualcomm)
-                if self.stt_service.initialize():  # ✅ 正確：調用實例方法
-                    logger.info("✅ STT 服務初始化成功")
+                if self.stt_service.initialize():  # 正確：調用實例方法
+                    logger.info("STT 服務初始化成功")
                 else:
-                    logger.error("❌ STT 服務初始化失敗")
+                    logger.error("STT 服務初始化失敗")
                     self.stt_service = None
             except Exception as e:
-                logger.warning(f"❌ STT 服務初始化失敗: {e}，但繼續啟動其他服務")
+                logger.warning(f"STT 服務初始化失敗: {e}，但繼續啟動其他服務")
                 self.stt_service = None
 
-            logger.info("⏭️ 跳過 LLM 服務初始化 (已停用)")
+            logger.info("跳過 LLM 服務初始化 (已停用)")
             self.llm_servicer = None
 
-            logger.info("⏭️ 跳過 RAG 服務初始化 (已停用)")
+            logger.info("跳過 RAG 服務初始化 (已停用)")
             self.rag_service = None
 
             logger.info("正在初始化虛擬頭像服務...")
             try:
                 self.virtual_avatar_servicer = VirtualAvatarServicer()
-                logger.info("✅ 虛擬頭像服務初始化成功")
+                logger.info("虛擬頭像服務初始化成功")
             except Exception as e:
-                logger.warning(f"❌ 虛擬頭像服務初始化失敗: {e}")
+                logger.warning(f"虛擬頭像服務初始化失敗: {e}")
                 self.virtual_avatar_servicer = None
             
             return True
@@ -500,22 +500,22 @@ class ServerManager:
         self.setup_server()
         self.server.start()
         
-        services = ["🔤 翻譯服務", "🔊 TTS 服務", "🎬 Wav2Lip 服務"]
+        services = ["翻譯服務", "TTS 服務", "Wav2Lip 服務"]
         if self.speaker_annote_servicer:
-            services.append("👥 語者辨識服務")
+            services.append("語者辨識服務")
         if self.speech_recognition_servicer:
-            services.append("🎤 語音識別服務")
+            services.append("語音識別服務")
         if self.stt_service:
-            services.append("🎙️ STT 串流語音識別服務")
+            services.append("STT 串流語音識別服務")
         if self.llm_servicer:
-            services.append("🤖 LLM 服務")
+            services.append("LLM 服務")
         if self.rag_service:
-            services.append("📚 RAG 問答服務")
+            services.append("RAG 問答服務")
         if self.virtual_avatar_servicer:
-            services.append("🎭 虛擬頭像服務")
+            services.append("虛擬頭像服務")
 
-        logger.info("🚀 gRPC 伺服器已成功啟動，監聽埠 50051...")
-        logger.info(f"📋 可用服務: {', '.join(services)}")
+        logger.info("gRPC 伺服器已成功啟動，監聽埠 50051...")
+        logger.info(f"可用服務: {', '.join(services)}")
         
         try:
             while True:
